@@ -624,13 +624,14 @@ export default function Navbar({
           <div 
             id="brand_logo"
             onClick={() => onChangeTab('home')}
-            className="flex items-center justify-center cursor-pointer shrink-0 hover:opacity-95 transition-opacity bg-white px-3 py-1 rounded-xl shadow-xs border border-sky-100 h-10 overflow-hidden"
+            className="flex items-center gap-2 cursor-pointer shrink-0 hover:opacity-95 transition-opacity bg-indigo-950 px-3.5 py-1.5 rounded-xl shadow-md border border-indigo-900 h-10 overflow-hidden"
           >
-            <img 
-              src="/logo.png" 
-              className="h-9 w-auto max-w-[180px] object-contain transition-transform duration-200 scale-140"
-              alt="Talanta Hub Logo"
-            />
+            <div className="bg-indigo-600 text-white p-1 rounded-lg flex items-center justify-center">
+              <Sparkles className="h-4 w-4 text-white" />
+            </div>
+            <span className="text-white font-black tracking-wider text-sm uppercase">
+              TALANTA <span className="text-sky-300">HUB</span>
+            </span>
           </div>
 
           {/* Navigation links (Home, Explore Talents, Job Market, Post a Job) */}

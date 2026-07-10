@@ -1137,73 +1137,7 @@ export default function App() {
         </div>
       </footer>
 
-      {/* Floating System Admin Dashboard */}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3 font-sans">
-        <AnimatePresence>
-          {showAdminPanel && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="w-80 bg-slate-900 border border-slate-800 text-white rounded-2xl shadow-2xl p-4 space-y-4"
-            >
-              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                <div className="flex items-center gap-2">
-                  <Wrench className="h-4 w-4 text-indigo-400" />
-                  <span className="text-xs font-black uppercase tracking-wider">System Admin Panel</span>
-                </div>
-                <button
-                  onClick={() => setShowAdminPanel(false)}
-                  className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors cursor-pointer"
-                  title="Close Panel"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
 
-              <div className="space-y-2 text-[11px] font-semibold text-slate-300">
-                <div className="flex justify-between">
-                  <span>Database Mode:</span>
-                  <span className="text-indigo-400 uppercase font-black">Supabase + Cache</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Active Accounts:</span>
-                  <span className="text-emerald-400 font-extrabold">{freelancers.length}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Active Role:</span>
-                  <span className="text-indigo-400 font-extrabold truncate max-w-[150px]">
-                    {activeRole === 'client' ? 'Client Partner' : (freelancers.find(f => f.id === activeRole)?.fullName || 'Creative')}
-                  </span>
-                </div>
-              </div>
-
-              <div className="pt-2 border-t border-slate-800 space-y-2">
-                <button
-                  onClick={async () => {
-                    if (window.confirm("Are you sure you want to delete ALL registered user accounts, profiles, and associated data from both local storage and the database? This cannot be undone.")) {
-                      await handleDeleteAllAccounts();
-                      setShowAdminPanel(false);
-                    }
-                  }}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-black rounded-xl transition-all shadow-sm cursor-pointer uppercase tracking-wider"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  <span>Delete All Accounts</span>
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <button
-          onClick={() => setShowAdminPanel(!showAdminPanel)}
-          className="h-12 w-12 bg-slate-900 hover:bg-slate-850 text-white rounded-full flex items-center justify-center shadow-2xl border border-slate-800 cursor-pointer transition-all hover:scale-105 active:scale-95"
-          title="System Admin & Database Panel"
-        >
-          <Settings className={`h-5 w-5 text-indigo-400 ${showAdminPanel ? 'rotate-90' : ''} transition-transform duration-300`} />
-        </button>
-      </div>
 
     </div>
   );
