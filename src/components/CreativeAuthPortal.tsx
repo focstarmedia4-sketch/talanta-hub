@@ -500,6 +500,26 @@ export function CreativeAuthPortal({
     onClose();
   };
 
+  const handleGoogleLogin = async () => {
+    setAuthError(null);
+    setAuthSuccess(null);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin,
+        },
+      });
+      if (error) {
+        setAuthError(error.message);
+      } else {
+        setAuthSuccess("Redirecting to Google for sign in...");
+      }
+    } catch (err: any) {
+      setAuthError(err.message || "An error occurred during Google Sign-In.");
+    }
+  };
+
   const handleGoogleAccountClick = (email: string, name: string) => {
     setAuthError(null);
     setAuthSuccess(null);
@@ -1023,7 +1043,7 @@ export function CreativeAuthPortal({
                   {/* Standard OAuth-style Continue with Google button */}
                   <button
                     type="button"
-                    onClick={() => setShowGoogleChooser(true)}
+                    onClick={handleGoogleLogin}
                     className="w-full py-3 px-4 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl font-bold transition-all flex items-center justify-center gap-2.5 shadow-xs cursor-pointer text-xs uppercase tracking-wider hover:border-slate-300"
                   >
                     <svg className="h-4.5 w-4.5 shrink-0" viewBox="0 0 24 24">
@@ -1179,7 +1199,7 @@ export function CreativeAuthPortal({
                     {/* Standard OAuth-style Continue with Google button */}
                     <button
                       type="button"
-                      onClick={() => setShowGoogleChooser(true)}
+                      onClick={handleGoogleLogin}
                       className="w-full py-3 px-4 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl font-bold transition-all flex items-center justify-center gap-2.5 shadow-xs cursor-pointer text-xs uppercase tracking-wider hover:border-slate-300"
                     >
                       <svg className="h-4.5 w-4.5 shrink-0" viewBox="0 0 24 24">

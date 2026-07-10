@@ -252,9 +252,121 @@ export default function App() {
 
   // Load data from Supabase and check session on mount
   useEffect(() => {
-    async function loadSupabaseDataAndSession() {
-      let activeFreelancers: FreelancerProfile[] = freelancers;
+    let activeFreelancers: FreelancerProfile[] = freelancers;
 
+    async function ensureProfileExists(user: any) {
+      const userId = user.id;
+      const exists = activeFreelancers.some(f => f.id === userId);
+      if (exists) return true;
+
+      let dbProfileExists = false;
+      try {
+        const { data: profile, error } = await supabase.from('profiles').select('id').eq('id', userId).maybeSingle();
+        if (!error && profile) {
+          dbProfileExists = true;
+        }
+      } catch (e) {
+        console.warn("Error checking profile:", e);
+      }
+
+      if (dbProfileExists) return true;
+
+      // Create a default profile
+      const name = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'Creative User';
+      const email = user.email || '';
+      const primaryCategory = 'photography';
+      const newProfile: FreelancerProfile = {
+        id: userId,
+        username: name.toLowerCase().replace(/\s+/g, '_') + '_' + Math.random().toString(36).substring(2, 6),
+        fullName: name,
+        title: 'Photography Professional',
+        avatarUrl: user.user_metadata?.avatar_url || user.user_metadata?.picture || '',
+        coverUrl: '',
+        bio: `${name} is a creative practitioner specialized in digital production and content creation in Kenya. Securely authenticated via Google.`,
+        location: 'Nairobi County',
+        hourlyRate: 4000,
+        category: primaryCategory,
+        skills: ['Digital Production', 'Photography', 'Videography', 'Social Media'],
+        theme: 'slate',
+        layoutOrder: ['hero', 'categories', 'gallery', 'analytics', 'reviews', 'contact'],
+        subscribedCategories: [primaryCategory],
+        notificationCount: 0,
+        unreadMessagesCount: 0,
+        email: email,
+        phone: '+254 700 111 222',
+        whatsapp: '+254 700 111 222',
+        categorySections: [
+          {
+            category: 'videography',
+            title: 'Cinematic Work & Reels',
+            customThumbnail: 'https://images.unsplash.com/photo-1579165466541-74e2beb67a3a?auto=format&fit=crop&q=80&w=600',
+            description: 'High-quality storytelling through professional moving pictures.',
+            visible: false
+          },
+          {
+            category: 'photography',
+            title: 'Fine Art & Commercial Captures',
+            customThumbnail: 'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&q=80&w=600',
+            description: 'Capturing precise details, lighting, and unforgettable moments.',
+            visible: true
+          },
+          {
+            category: 'design',
+            title: 'Visual Identity & Branding Projects',
+            customThumbnail: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=600',
+            description: 'Vector layout designs, custom typography, and complete visual schemes.',
+            visible: false
+          },
+          {
+            category: 'illustration',
+            title: 'Concept Painting & Digital Artworks',
+            customThumbnail: 'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?auto=format&fit=crop&q=80&w=600',
+            description: 'Stylized 2D and 3D artwork crafted from imagination.',
+            visible: false
+          }
+        ],
+        portfolio: [],
+        reviews: [],
+        feedPosts: [
+          {
+            id: `f_join_post_${Date.now()}`,
+            caption: `Welcome to my Talanta Hub profile!\n\nI'm excited to share my work, creative journey, and the projects I'm passionate about. Here you'll find my latest updates, portfolio highlights, and the services I offer.\n\nFeel free to connect, explore my work, and reach out if you'd like to collaborate on your next project.`,
+            likes: 0,
+            timestamp: new Date().toISOString(),
+            isLikedByUser: false
+          }
+        ],
+        analytics: {
+          totalViews: 0,
+          totalInquiries: 0,
+          conversionRate: 0,
+          viewsHistory: [
+            { label: 'Week 1', count: 0 },
+            { label: 'Week 2', count: 0 },
+            { label: 'Week 3', count: 0 },
+            { label: 'Week 4', count: 0 }
+          ],
+          reachByCategory: [
+            { category: primaryCategory, percentage: 100 }
+          ]
+        }
+      };
+
+      try {
+        await upsertFreelancerProfile(newProfile);
+        setFreelancers(prev => {
+          if (prev.some(f => f.id === userId)) return prev;
+          return [newProfile, ...prev];
+        });
+        activeFreelancers = [newProfile, ...activeFreelancers];
+        return true;
+      } catch (saveErr) {
+        console.error("Error auto-creating profile for OAuth user:", saveErr);
+        return false;
+      }
+    }
+
+    async function loadSupabaseDataAndSession() {
       // Resolve local cached profiles if any exist
       if (freelancers.length > 0) {
         try {
@@ -290,8 +402,12 @@ export default function App() {
         const { data: { session } } = await supabase.auth.getSession();
         if (session && session.user) {
           const userId = session.user.id;
-          const hasProfile = activeFreelancers.some(f => f.id === userId);
           const isRegistering = document.getElementById('profile-setup-form') !== null || sessionStorage.getItem('signup_success_email') !== null;
+          
+          let hasProfile = activeFreelancers.some(f => f.id === userId);
+          if (!hasProfile && !isRegistering) {
+            hasProfile = await ensureProfileExists(session.user);
+          }
           
           if (hasProfile || isRegistering) {
             setIsLoggedIn(true);
@@ -319,17 +435,23 @@ export default function App() {
       const res = supabase.auth.onAuthStateChange(async (event, session) => {
         if (session && session.user) {
           const userId = session.user.id;
-          let profileExists = false;
-          try {
-            const { data: profile, error } = await supabase.from('profiles').select('id').eq('id', userId).maybeSingle();
-            if (!error && profile) {
-              profileExists = true;
+          const isRegistering = document.getElementById('profile-setup-form') !== null || sessionStorage.getItem('signup_success_email') !== null;
+
+          let profileExists = activeFreelancers.some(f => f.id === userId);
+          if (!profileExists) {
+            try {
+              const { data: profile, error } = await supabase.from('profiles').select('id').eq('id', userId).maybeSingle();
+              if (!error && profile) {
+                profileExists = true;
+              }
+            } catch (e) {
+              console.warn("Error checking profile in auth state listener:", e);
             }
-          } catch (e) {
-            console.warn("Error checking profile in auth state listener:", e);
           }
 
-          const isRegistering = document.getElementById('profile-setup-form') !== null || sessionStorage.getItem('signup_success_email') !== null;
+          if (!profileExists && !isRegistering) {
+            profileExists = await ensureProfileExists(session.user);
+          }
 
           if (profileExists || isRegistering) {
             setIsLoggedIn(true);
