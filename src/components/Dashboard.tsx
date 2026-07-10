@@ -2503,7 +2503,7 @@ export default function Dashboard({ profile, onUpdateProfile, onDeleteProfile, a
                     <input
                       type="email"
                       required
-                      placeholder="e.g. macharia@vividvisuals.co.ke"
+                      placeholder="e.g. macharia@talantahub.com"
                       value={profileEmail}
                       onChange={(e) => setProfileEmail(e.target.value)}
                       className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-semibold"

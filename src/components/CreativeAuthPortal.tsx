@@ -923,7 +923,7 @@ export function CreativeAuthPortal({
                         type="email"
                         required
                         readOnly
-                        placeholder="e.g. macharia@vividvisuals.co.ke"
+                        placeholder="e.g. macharia@talantahub.com"
                         value={creativeEmail}
                         className="w-full text-xs bg-slate-100 border border-slate-150 rounded-xl p-2.5 font-semibold text-slate-500 cursor-not-allowed"
                       />
