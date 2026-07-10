@@ -624,14 +624,14 @@ export default function Navbar({
           <div 
             id="brand_logo"
             onClick={() => onChangeTab('home')}
-            className="flex items-center gap-2 cursor-pointer shrink-0 hover:opacity-95 transition-opacity bg-indigo-950 px-3.5 py-1.5 rounded-xl shadow-md border border-indigo-900 h-10 overflow-hidden"
+            className="flex items-center justify-center cursor-pointer shrink-0 hover:opacity-95 transition-opacity h-11 w-24 md:w-28 rounded-xl overflow-hidden"
           >
-            <div className="bg-indigo-600 text-white p-1 rounded-lg flex items-center justify-center">
-              <Sparkles className="h-4 w-4 text-white" />
-            </div>
-            <span className="text-white font-black tracking-wider text-sm uppercase">
-              TALANTA <span className="text-sky-300">HUB</span>
-            </span>
+            <img 
+              src="https://scontent-mba2-1.xx.fbcdn.net/v/t39.30808-6/742145051_28334791196128142_8326463267384976090_n.jpg?stp=dst-jpg_tt6&cstp=mx1536x1024&ctp=s1536x1024&_nc_cat=107&ccb=1-7&_nc_sid=127cfc&_nc_eui2=AeGnsGSKpeILKrXEn_NHljlU3XntK1ExEF_dee0rUTEQX1xz2znpCzrNLZAilH3W3BYLk8WMdG3AE0tBT_h8jxl_&_nc_ohc=9H5_unlFY-gQ7kNvwG22gia&_nc_oc=Adprw05SU2dvIpBvi4n_enmtnhV5_YVs5zOA4RbdWAiX0RewsTiDYX6tjolXXpFuoIU&_nc_zt=23&_nc_ht=scontent-mba2-1.xx&_nc_gid=biP5rFVNXRjWfQIXMrOt4Q&_nc_ss=7b2a8&oh=00_AQCnffdCCIDdY3XXe7XY8x6qEtJfUlVcPCuVQ2e0JqPcxw&oe=6A56AA53" 
+              alt="Talanta Hub Logo"
+              className="h-full w-full object-cover"
+              referrerPolicy="no-referrer"
+            />
           </div>
 
           {/* Navigation links (Home, Explore Talents, Job Market, Post a Job) */}
