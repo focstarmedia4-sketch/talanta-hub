@@ -11,12 +11,12 @@ import {
   Lock
 } from 'lucide-react';
 import { FreelancerProfile, Review, CreativeCategory, PortfolioItem, FeedPost } from '../types';
-import { initialFreelancers } from '../data/mockData';
 import { THEME_CONFIGS } from './ThemeStyles';
 import { motion, AnimatePresence } from 'motion/react';
 import { NotableClients } from './NotableClients';
 import { RequestCall } from './RequestCall';
 import { ImageCropperModal } from './ImageCropperModal';
+import { formatTimelineTime } from '../utils/time';
 
 interface PortfolioViewProps {
   profile: FreelancerProfile;
@@ -238,7 +238,7 @@ export default function PortfolioView({
 
   // Local state for creative feed posts
   const [feedPosts, setFeedPosts] = useState<FeedPost[]>(() => {
-    if (profile.feedPosts && profile.feedPosts.length > 0) {
+    if (profile.feedPosts) {
       return profile.feedPosts;
     }
     // Generate lovely, tailored seed feed posts based on the freelancer's identity
@@ -246,25 +246,25 @@ export default function PortfolioView({
     if (profile.portfolio && profile.portfolio.length > 0) {
       seed.push({
         id: `${profile.id}_seed_1`,
-        caption: `Just published a major piece in my portfolio: "${profile.portfolio[0].title}". So excited to share this update! Let me know what you think of the concept in the comments or drop an inquiry. 💡🎨`,
+        caption: `Just published a major piece in my portfolio: "${profile.portfolio[0].title}". So excited to share this update!`,
         imageUrl: profile.portfolio[0].imageUrl,
-        likes: Math.floor(Math.random() * 80) + 40,
-        timestamp: '3 hours ago',
+        likes: 0,
+        timestamp: profile.portfolio[0].date || '2026-05-12',
       });
     } else {
       seed.push({
         id: `${profile.id}_seed_1`,
-        caption: `Welcome to my brand-new live workspace on Talanta Hub! Stay tuned as I share design updates, direct previews, and creative milestones on this timeline. ⚡✨`,
-        likes: Math.floor(Math.random() * 30) + 10,
-        timestamp: '5 hours ago',
+        caption: `Welcome to my brand-new live workspace on Talanta Hub! Stay tuned as I share design updates.`,
+        likes: 0,
+        timestamp: '2026-07-08',
       });
     }
 
     seed.push({
       id: `${profile.id}_seed_2`,
-      caption: `Morning coffee thoughts: "Craftsmanship lies in executing the request with absolute precision. Minimal layout clutter, generous negative space, and deep color pairings." Always design with intention! ☕📐`,
-      likes: Math.floor(Math.random() * 45) + 15,
-      timestamp: 'Yesterday',
+      caption: `Morning coffee thoughts: Craftsmanship lies in executing the request with absolute precision. Always design with intention!`,
+      likes: 0,
+      timestamp: '2026-07-08',
     });
 
     return seed;
@@ -349,7 +349,7 @@ export default function PortfolioView({
       caption: newPostCaption || undefined,
       imageUrl: newPostImage || undefined,
       likes: 0,
-      timestamp: 'Just now',
+      timestamp: new Date().toISOString(),
       isLikedByUser: false
     };
 
@@ -384,7 +384,7 @@ export default function PortfolioView({
   // Compute related creatives with similar category or skills
   const getRelatedCreatives = () => {
     const list = allFreelancers || [];
-    const sourceList = list.length > 0 ? list : initialFreelancers;
+    const sourceList = list;
     
     // Filter out current profile
     const candidates = sourceList.filter(f => f.id !== profile.id);
@@ -554,8 +554,12 @@ export default function PortfolioView({
             {isOwner && (
               <div className={`${theme.cardBg} ${theme.cardBorder} ${theme.cardRadius} p-5 space-y-4`}>
                 <div className="flex items-center gap-2 pb-3 border-b border-black/5">
-                  <div className="h-8 w-8 rounded-full overflow-hidden border border-black/5 bg-slate-100">
-                    <img src={profile.avatarUrl} alt={profile.fullName} className="w-full h-full object-cover" />
+                  <div className="h-8 w-8 rounded-full overflow-hidden border border-black/5 bg-slate-100 flex items-center justify-center font-extrabold text-xs text-indigo-700 bg-indigo-50">
+                    {profile.avatarUrl ? (
+                      <img src={profile.avatarUrl} alt={profile.fullName} className="w-full h-full object-cover" />
+                    ) : (
+                      profile.fullName[0]?.toUpperCase()
+                    )}
                   </div>
                   <div>
                     <span className="text-xs font-bold text-slate-800 block">Post an update to your live timeline</span>
@@ -653,12 +657,16 @@ export default function PortfolioView({
                     {/* Post Header */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
-                        <div className="h-9 w-9 rounded-full overflow-hidden border border-black/5 bg-slate-100">
-                          <img src={profile.avatarUrl} alt={profile.fullName} className="w-full h-full object-cover" />
+                        <div className="h-9 w-9 rounded-full overflow-hidden border border-black/5 bg-indigo-50 flex items-center justify-center font-extrabold text-sm text-indigo-700">
+                          {profile.avatarUrl ? (
+                            <img src={profile.avatarUrl} alt={profile.fullName} className="w-full h-full object-cover" />
+                          ) : (
+                            profile.fullName[0]?.toUpperCase()
+                          )}
                         </div>
                         <div>
                           <span className="text-sm font-black text-slate-950 block leading-tight">{profile.fullName}</span>
-                          <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wide">{post.timestamp}</span>
+                          <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wide">{formatTimelineTime(post.timestamp)}</span>
                         </div>
                       </div>
                     </div>
@@ -1029,24 +1037,34 @@ export default function PortfolioView({
                     >
                       {/* Mini cover banner */}
                       <div className="relative h-20 bg-slate-100 overflow-hidden">
-                        <img 
-                          src={c.coverUrl} 
-                          alt={`${c.fullName} Cover`}
-                          referrerPolicy="no-referrer"
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        />
+                        {c.coverUrl ? (
+                          <img 
+                            src={c.coverUrl} 
+                            alt={`${c.fullName} Cover`}
+                            referrerPolicy="no-referrer"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-r from-slate-700 to-slate-800" />
+                        )}
                         <div className="absolute inset-0 bg-black/25" />
                       </div>
 
                       {/* Content with negative margin avatar offset */}
                       <div className="p-4 pt-0 flex flex-col gap-3 relative">
                         <div className="flex items-end gap-3 -mt-6 relative z-10">
-                          <img 
-                            src={c.avatarUrl} 
-                            alt={c.fullName}
-                            referrerPolicy="no-referrer"
-                            className="h-12 w-12 rounded-full object-cover shrink-0 border-2 border-white shadow-md bg-white"
-                          />
+                          {c.avatarUrl ? (
+                            <img 
+                              src={c.avatarUrl} 
+                              alt={c.fullName}
+                              referrerPolicy="no-referrer"
+                              className="h-12 w-12 rounded-full object-cover shrink-0 border-2 border-white shadow-md bg-white"
+                            />
+                          ) : (
+                            <div className="h-12 w-12 rounded-full border-2 border-white shadow-md bg-indigo-50 text-indigo-700 flex items-center justify-center font-extrabold text-xs shrink-0">
+                              {c.fullName[0]?.toUpperCase()}
+                            </div>
+                          )}
                           <div className="space-y-0.5 min-w-0 flex-1">
                             <h4 className="font-black text-sm text-slate-800 truncate group-hover:text-indigo-600 transition-colors">{c.fullName}</h4>
                           </div>

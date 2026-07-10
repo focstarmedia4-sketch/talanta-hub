@@ -204,22 +204,22 @@ export default function Home({
 
       {/* 2. PLATFORM QUICK STATS */}
       <section className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-        <div className="bg-white rounded-2xl border border-slate-100 p-6 flex items-center gap-5 shadow-xs">
-          <div className="h-12 w-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center shrink-0">
-            <Users className="h-6 w-6" />
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 flex items-center gap-4 shadow-xs">
+          <div className="h-10 w-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center shrink-0">
+            <Users className="h-5 w-5" />
           </div>
           <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">Trusted By</span>
-            <span className="text-2xl font-black text-slate-800">10,000+ Creatives</span>
+            <span className="text-xs font-medium text-slate-400 block">Trusted By</span>
+            <span className="text-xl font-bold text-slate-800">10,000+ Creatives</span>
           </div>
         </div>
-        <div className="bg-white rounded-2xl border border-slate-100 p-6 flex items-center gap-5 shadow-xs">
-          <div className="h-12 w-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center shrink-0">
-            <MapPin className="h-6 w-6" />
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 flex items-center gap-4 shadow-xs">
+          <div className="h-10 w-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center shrink-0">
+            <MapPin className="h-5 w-5" />
           </div>
           <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">County Coverage</span>
-            <span className="text-2xl font-black text-slate-800">47 Counties</span>
+            <span className="text-xs font-medium text-slate-400 block">County Coverage</span>
+            <span className="text-xl font-bold text-slate-800">47 Counties</span>
           </div>
         </div>
       </section>
@@ -228,29 +228,33 @@ export default function Home({
       <section className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div className="space-y-1">
-            <div className="inline-flex items-center gap-1.5 text-xs font-extrabold text-red-600 uppercase tracking-widest">
+            <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 uppercase tracking-wider">
               <Compass className="h-3.5 w-3.5" />
               <span>Explore Talents</span>
             </div>
-            <h2 className="text-2xl md:text-3xl font-display font-black text-slate-900 uppercase tracking-tight">
+            <h2 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight">
               Featured Kenyan Creatives
             </h2>
-            <p className="text-sm text-slate-500 font-medium">
+            <p className="text-sm text-slate-500">
               Hire top rated specialists matching your visual and digital production standards.
             </p>
           </div>
           <button
             onClick={() => onChangeTab('browse')}
-            className="inline-flex items-center gap-1.5 text-xs font-extrabold text-indigo-600 hover:text-indigo-700 uppercase tracking-wider transition-colors cursor-pointer group"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-700 uppercase tracking-wider transition-colors cursor-pointer group"
           >
             <span>View All Talents</span>
-            <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+            <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-1 transition-transform" />
           </button>
         </div>
 
         {/* Talent Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {featuredTalents.map((freelancer) => {
+          {featuredTalents.length === 0 ? (
+            <div className="col-span-full text-center py-16 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+              <p className="text-slate-400 text-lg font-medium">No creatives found</p>
+            </div>
+          ) : featuredTalents.map((freelancer) => {
             const avgRating = getAverageRating(freelancer);
             return (
               <div
@@ -260,25 +264,33 @@ export default function Home({
               >
                 {/* Cover Banner */}
                 <div className="relative h-28 bg-slate-100 overflow-hidden">
-                  <img
-                    src={freelancer.coverUrl}
-                    alt={`${freelancer.fullName} Cover`}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-                    referrerPolicy="no-referrer"
-                  />
+                  {freelancer.coverUrl ? (
+                    <img
+                      src={freelancer.coverUrl}
+                      alt={`${freelancer.fullName} Cover`}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-r from-slate-700 to-slate-800" />
+                  )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
                 </div>
 
                 {/* Card Info */}
                 <div className="p-4 flex-1 flex flex-col justify-between space-y-3.5">
                   <div className="flex gap-3 items-start relative">
-                    <div className="relative -mt-9 h-12 w-12 rounded-xl border-2 border-white bg-white overflow-hidden shadow-sm shrink-0">
-                      <img
-                        src={freelancer.avatarUrl}
-                        alt={freelancer.fullName}
-                        className="w-full h-full object-cover"
-                        referrerPolicy="no-referrer"
-                      />
+                    <div className="relative -mt-9 h-12 w-12 rounded-xl border-2 border-white bg-white overflow-hidden shadow-sm shrink-0 flex items-center justify-center font-extrabold text-xs text-indigo-700 bg-indigo-50">
+                      {freelancer.avatarUrl ? (
+                        <img
+                          src={freelancer.avatarUrl}
+                          alt={freelancer.fullName}
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        freelancer.fullName[0]?.toUpperCase()
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-1">
@@ -319,50 +331,54 @@ export default function Home({
       <section className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div className="space-y-1">
-            <div className="inline-flex items-center gap-1.5 text-xs font-extrabold text-rose-600 uppercase tracking-widest">
+            <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-600 uppercase tracking-wider">
               <Briefcase className="h-3.5 w-3.5" />
               <span>Job Market</span>
             </div>
-            <h2 className="text-2xl md:text-3xl font-display font-black text-slate-900 uppercase tracking-tight">
-              RECENTLY POSTED JOBS
+            <h2 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight">
+              Recently Posted Jobs
             </h2>
-            <p className="text-sm text-slate-500 font-medium">
+            <p className="text-sm text-slate-500">
               Browse projects commissioned by active businesses and clients looking for creative production.
             </p>
           </div>
           <button
             onClick={() => onChangeTab('jobs')}
-            className="inline-flex items-center gap-1.5 text-xs font-extrabold text-indigo-600 hover:text-indigo-700 uppercase tracking-wider transition-colors cursor-pointer group"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-700 uppercase tracking-wider transition-colors cursor-pointer group"
           >
             <span>View Job Market</span>
-            <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+            <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-1 transition-transform" />
           </button>
         </div>
 
         {/* Jobs List Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {recentJobs.map((job) => (
+          {recentJobs.length === 0 ? (
+            <div className="col-span-full text-center py-16 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+              <p className="text-slate-400 text-lg font-medium">No jobs available</p>
+            </div>
+          ) : recentJobs.map((job) => (
             <div
               key={job.id}
               onClick={() => setViewingJob(job)}
-              className="group bg-white rounded-2xl border border-sky-200 hover:border-sky-400 p-5 flex flex-col justify-between hover:shadow-lg hover:shadow-sky-100/20 transition-all duration-300 cursor-pointer"
+              className="group bg-white rounded-2xl border border-slate-100 hover:border-indigo-100 p-5 flex flex-col justify-between hover:shadow-md hover:shadow-indigo-100/10 transition-all duration-300 cursor-pointer"
             >
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md bg-indigo-50 text-indigo-600">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-md bg-indigo-50 text-indigo-600">
                     {job.category}
                   </span>
-                  <div className="flex items-center gap-1 text-[11px] text-slate-400 font-medium">
+                  <div className="flex items-center gap-1 text-[10px] text-slate-400">
                     <Calendar className="h-3 w-3" />
                     <span>Posted {job.postedDate}</span>
                   </div>
                 </div>
 
-                <h3 className="text-lg font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                <h3 className="text-base font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors">
                   {job.title}
                 </h3>
 
-                <p className="text-xs font-semibold text-slate-500">
+                <p className="text-xs text-slate-400">
                   {job.clientName} {job.clientCompany && `@ ${job.clientCompany}`}
                 </p>
 
@@ -371,7 +387,7 @@ export default function Home({
                 </p>
               </div>
 
-              <div className="pt-4 mt-3 border-t border-slate-50 flex items-center justify-between text-xs text-slate-500 font-semibold">
+              <div className="pt-4 mt-3 border-t border-slate-50 flex items-center justify-between text-xs text-slate-500">
                 <div className="flex items-center gap-3">
                   <span className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded text-slate-700">
                     <Coins className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
@@ -382,7 +398,7 @@ export default function Home({
                     <span className="truncate max-w-[100px]">{job.location}</span>
                   </span>
                 </div>
-                <div className="flex items-center gap-0.5 text-indigo-600 font-bold group-hover:translate-x-0.5 transition-transform">
+                <div className="flex items-center gap-0.5 text-indigo-600 font-semibold group-hover:translate-x-0.5 transition-transform">
                   <span>View Details</span>
                   <ArrowRight className="h-3.5 w-3.5" />
                 </div>
@@ -395,14 +411,14 @@ export default function Home({
       {/* HOW TALANTA HUB WORKS */}
       <section className="space-y-6 pt-6 border-t border-slate-100">
         <div className="text-center space-y-2 max-w-2xl mx-auto">
-          <div className="inline-flex items-center gap-1.5 text-xs font-extrabold text-indigo-600 uppercase tracking-widest justify-center">
+          <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 uppercase tracking-wider justify-center">
             <Sparkles className="h-3.5 w-3.5" />
             <span>Process</span>
           </div>
-          <h2 className="text-2xl md:text-3xl font-display font-black text-slate-900 uppercase tracking-tight">
-            HOW TALANTA HUB WORKS
+          <h2 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight">
+            How Talanta Hub Works
           </h2>
-          <p className="text-sm text-slate-500 font-medium">
+          <p className="text-sm text-slate-500">
             A simple, fast, and secure way to connect clients with Kenya's elite creative talents.
           </p>
         </div>
@@ -549,9 +565,6 @@ export default function Home({
           <h2 className="text-2xl md:text-3xl font-display font-black text-slate-900 uppercase tracking-tight">
             WHY OUR PLATFORM WORKS FOR EVERYONE
           </h2>
-          <p className="text-sm md:text-base text-slate-600 leading-relaxed font-semibold">
-            Built to help clients find the right creative, while giving creatives more opportunities to grow.
-          </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">

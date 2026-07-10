@@ -118,7 +118,7 @@ export default function Inbox({ conversations, onSendMessage, currentUserId, cur
               >
                 {/* Avatar */}
                 <div className="relative shrink-0">
-                  {currentUserId === 'client' ? (
+                  {currentUserId === 'client' && chatAvatar ? (
                     <img
                       src={chatAvatar}
                       alt={chatName}
@@ -167,7 +167,7 @@ export default function Inbox({ conversations, onSendMessage, currentUserId, cur
             {/* Thread Header */}
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-white z-10 shadow-xs">
               <div className="flex items-center gap-3">
-                {currentUserId === 'client' ? (
+                {currentUserId === 'client' && activeConv.freelancerAvatar ? (
                   <img
                     src={activeConv.freelancerAvatar}
                     alt={activeConv.freelancerName}
@@ -176,7 +176,7 @@ export default function Inbox({ conversations, onSendMessage, currentUserId, cur
                   />
                 ) : (
                   <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-150 font-extrabold flex items-center justify-center text-sm uppercase">
-                    {activeConv.clientName[0]}
+                    {(currentUserId === 'client' ? activeConv.freelancerName : activeConv.clientName)[0]}
                   </div>
                 )}
                 <div>

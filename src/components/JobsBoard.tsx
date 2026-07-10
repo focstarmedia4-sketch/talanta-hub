@@ -1200,11 +1200,16 @@ export default function JobsBoard({
         })}
         </AnimatePresence>
 
-        {sortedJobs.length === 0 && (
+        {jobs.length === 0 ? (
+          <div className="col-span-full text-center py-16 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+            <p className="text-slate-400 text-lg font-semibold uppercase tracking-wider">No jobs available</p>
+            <p className="text-sm text-slate-400 mt-1">Be the first to post a job brief!</p>
+          </div>
+        ) : sortedJobs.length === 0 ? (
           <div className="col-span-full text-center py-16 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
             <p className="text-slate-400 text-lg font-medium">No job briefs match your query.</p>
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Viewing Details Modal */}

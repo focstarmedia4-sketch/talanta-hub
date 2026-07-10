@@ -67,7 +67,8 @@ div#root:nth-of-type(1) > div:nth-of-type(1) > footer:nth-of-type(1) > div:nth-o
 /* Custom sleek, ultra-thin scrollbar styling */
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+  scrollbar-color: rgba(0, 0, 0, 0.25) transparent;
+  -webkit-overflow-scrolling: touch;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -80,7 +81,7 @@ div#root:nth-of-type(1) > div:nth-of-type(1) > footer:nth-of-type(1) > div:nth-o
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: rgba(0, 0, 0, 0.18);
+  background-color: rgba(0, 0, 0, 0.25);
   border-radius: 9999px;
   transition: background-color 0.2s ease;
 }

@@ -17,32 +17,7 @@ interface ClientItem {
 }
 
 // Tailored default notable clients based on the freelancer's identity for premium look out of the box
-export const DEFAULT_CLIENTS_MAP: Record<string, ClientItem[]> = {
-  f1: [
-    { id: 'c1', name: 'Red Bull Media', logoUrl: 'https://images.unsplash.com/photo-1518156677180-95a2893f3e9f?auto=format&fit=crop&q=80&w=150', website: 'https://www.redbull.com' },
-    { id: 'c2', name: 'Nike Running', logoUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=150', website: 'https://www.nike.com' },
-    { id: 'c3', name: 'Blue Bottle Coffee', logoUrl: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&q=80&w=150', website: 'https://bluebottlecoffee.com' },
-    { id: 'c4', name: 'BMW USA', logoUrl: 'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&q=80&w=150', website: 'https://www.bmwusa.com' }
-  ],
-  f2: [
-    { id: 'c1', name: 'Vogue Magazine', logoUrl: 'https://images.unsplash.com/photo-1546074177-ffedd1d85d4b?auto=format&fit=crop&q=80&w=150', website: 'https://www.vogue.com' },
-    { id: 'c2', name: 'Kinfolk Editorial', logoUrl: 'https://images.unsplash.com/photo-1457369804613-52c61a468e7d?auto=format&fit=crop&q=80&w=150', website: 'https://www.kinfolk.com' },
-    { id: 'c3', name: 'Chanel Fragrance', logoUrl: 'https://images.unsplash.com/photo-1594035910387-fea47794261f?auto=format&fit=crop&q=80&w=150', website: 'https://www.chanel.com' },
-    { id: 'c4', name: 'Zara Home', logoUrl: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&q=80&w=150', website: 'https://www.zara.com' }
-  ],
-  f3: [
-    { id: 'c1', name: 'Figma Inc.', logoUrl: 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&q=80&w=150', website: 'https://www.figma.com' },
-    { id: 'c2', name: 'Shopify Studio', logoUrl: 'https://images.unsplash.com/photo-1563013544-824ae1d704d3?auto=format&fit=crop&q=80&w=150', website: 'https://www.shopify.com' },
-    { id: 'c3', name: 'Stripe Press', logoUrl: 'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?auto=format&fit=crop&q=80&w=150', website: 'https://press.stripe.com' },
-    { id: 'c4', name: 'Monocle Magazine', logoUrl: 'https://images.unsplash.com/photo-1506880018603-83d5b814b5a6?auto=format&fit=crop&q=80&w=150', website: 'https://monocle.com' }
-  ],
-  f4: [
-    { id: 'c1', name: 'The New Yorker', logoUrl: 'https://images.unsplash.com/photo-1531594652701-4be3a30386cf?auto=format&fit=crop&q=80&w=150', website: 'https://www.newyorker.com' },
-    { id: 'c2', name: 'Penguin Books', logoUrl: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&q=80&w=150', website: 'https://www.penguin.co.uk' },
-    { id: 'c3', name: 'Starbucks Coffee', logoUrl: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&q=80&w=150', website: 'https://www.starbucks.com' },
-    { id: 'c4', name: 'Target Corporation', logoUrl: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&q=80&w=150', website: 'https://www.target.com' }
-  ]
-};
+export const DEFAULT_CLIENTS_MAP: Record<string, ClientItem[]> = {};
 
 export function NotableClients({ profile, isOwner, onUpdateProfile }: NotableClientsProps) {
   // Retrieve current clients from profile or use pre-seeded defaults

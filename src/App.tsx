@@ -13,9 +13,28 @@ import PortfolioView from './components/PortfolioView';
 import Home from './components/Home';
 import TermsAndConditions from './components/TermsAndConditions';
 import { FreelancerProfile, Job, Conversation, PlatformNotification, Review, Message, CreativeCategory } from './types';
-import { initialFreelancers, initialJobs, initialConversations } from './data/mockData';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShieldAlert, Info, Sparkles, CheckCircle } from 'lucide-react';
+import { ShieldAlert, Info, Sparkles, CheckCircle, Database, Wrench, Settings, Trash2, X } from 'lucide-react';
+import { supabase } from './supabaseClient';
+import { 
+  loadFreelancerProfilesFromSupabase, 
+  upsertFreelancerProfile, 
+  deleteFreelancerProfile, 
+  savePortfolioItems, 
+  saveFeedPosts, 
+  loadJobsFromSupabase, 
+  upsertJobInSupabase, 
+  deleteJobFromSupabase,
+  generateUUID,
+  deleteAllProfilesAndJobsFromSupabase
+} from './utils/supabaseService';
+import { 
+  processProfileUploads, 
+  resolveProfileUrls, 
+  findRemovedStoragePaths, 
+  deleteStorageFiles,
+  getAllStoragePaths
+} from './utils/storageService';
 
 function getStockImage(category: string): string {
   const images: Record<string, string> = {
@@ -158,8 +177,9 @@ export default function App() {
   // Core Persistent State
   const [freelancers, setFreelancers] = useState<FreelancerProfile[]>(() => {
     const saved = localStorage.getItem('vivid_freelancers');
-    const parsed: FreelancerProfile[] = saved ? JSON.parse(saved) : initialFreelancers;
-    return parsed.map(f => ({
+    const parsed: FreelancerProfile[] = saved ? JSON.parse(saved) : [];
+    // Sanitize by filtering out any legacy mock profiles
+    return parsed.filter(f => !f.id.startsWith('f')).map(f => ({
       ...f,
       walletBalanceKsh: typeof f.walletBalanceKsh === 'number' ? f.walletBalanceKsh : 2500,
       unlockedJobIds: f.unlockedJobIds || []
@@ -168,18 +188,21 @@ export default function App() {
 
   const [jobs, setJobs] = useState<Job[]>(() => {
     const saved = localStorage.getItem('vivid_jobs');
-    const parsed: Job[] = saved ? JSON.parse(saved) : initialJobs;
-    return parsed.map((job, idx) => ({
+    const parsed: Job[] = saved ? JSON.parse(saved) : [];
+    // Sanitize by filtering out any legacy mock jobs
+    return parsed.filter(j => !j.id.startsWith('j')).map((job, idx) => ({
       ...job,
       status: job.status || 'open',
-      unlockCount: typeof job.unlockCount === 'number' ? job.unlockCount : (idx * 3 + 4) % 20,
+      unlockCount: typeof job.unlockCount === 'number' ? job.unlockCount : 0,
       unlockPriceKsh: 50
     }));
   });
 
   const [conversations, setConversations] = useState<Conversation[]>(() => {
     const saved = localStorage.getItem('vivid_conversations');
-    return saved ? JSON.parse(saved) : initialConversations;
+    const parsed: Conversation[] = saved ? JSON.parse(saved) : [];
+    // Sanitize by filtering out any legacy mock conversations
+    return parsed.filter(c => !c.id.startsWith('c'));
   });
 
   const [notifications, setNotifications] = useState<PlatformNotification[]>(() => {
@@ -199,6 +222,7 @@ export default function App() {
   // Global Toast Toast Banner
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<'success' | 'info'>('success');
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
 
   // Sync state with localStorage on changes
   useEffect(() => {
@@ -226,6 +250,125 @@ export default function App() {
     safeLocalStorageSetItem('vivid_active_role', activeRole);
   }, [activeRole]);
 
+  // Load data from Supabase and check session on mount
+  useEffect(() => {
+    async function loadSupabaseDataAndSession() {
+      let activeFreelancers: FreelancerProfile[] = freelancers;
+
+      // Resolve local cached profiles if any exist
+      if (freelancers.length > 0) {
+        try {
+          const resolvedLocal = await Promise.all(freelancers.map(resolveProfileUrls));
+          setFreelancers(resolvedLocal);
+          activeFreelancers = resolvedLocal;
+        } catch (err) {
+          console.warn("Error resolving cached local profile URLs:", err);
+        }
+      }
+
+      try {
+        const dbFreelancers = await loadFreelancerProfilesFromSupabase();
+        if (dbFreelancers !== null) {
+          setFreelancers(dbFreelancers);
+          activeFreelancers = dbFreelancers;
+        }
+      } catch (err) {
+        console.error("Error loading freelancers from Supabase:", err);
+      }
+
+      try {
+        const dbJobs = await loadJobsFromSupabase();
+        if (dbJobs !== null) {
+          setJobs(dbJobs);
+        }
+      } catch (err) {
+        console.error("Error loading jobs from Supabase:", err);
+      }
+
+      // Check active Supabase session on mount
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && session.user) {
+          const userId = session.user.id;
+          const hasProfile = activeFreelancers.some(f => f.id === userId);
+          const isRegistering = document.getElementById('profile-setup-form') !== null || sessionStorage.getItem('signup_success_email') !== null;
+          
+          if (hasProfile || isRegistering) {
+            setIsLoggedIn(true);
+            localStorage.setItem('vivid_is_logged_in', 'true');
+            setActiveRole(userId);
+            localStorage.setItem('vivid_active_role', userId);
+          } else {
+            // No profile row exists, and not in registration setup. Force sign out to clean state.
+            await supabase.auth.signOut();
+            setIsLoggedIn(false);
+            localStorage.setItem('vivid_is_logged_in', 'false');
+            setActiveRole('client');
+            localStorage.setItem('vivid_active_role', 'client');
+          }
+        }
+      } catch (err) {
+        console.error("Error checking session:", err);
+      }
+    }
+    loadSupabaseDataAndSession();
+
+    // Listen for auth changes safely
+    let subscription: any = null;
+    try {
+      const res = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (session && session.user) {
+          const userId = session.user.id;
+          let profileExists = false;
+          try {
+            const { data: profile, error } = await supabase.from('profiles').select('id').eq('id', userId).maybeSingle();
+            if (!error && profile) {
+              profileExists = true;
+            }
+          } catch (e) {
+            console.warn("Error checking profile in auth state listener:", e);
+          }
+
+          const isRegistering = document.getElementById('profile-setup-form') !== null || sessionStorage.getItem('signup_success_email') !== null;
+
+          if (profileExists || isRegistering) {
+            setIsLoggedIn(true);
+            localStorage.setItem('vivid_is_logged_in', 'true');
+            setActiveRole(userId);
+            localStorage.setItem('vivid_active_role', userId);
+          } else {
+            // Profile does not exist (deleted or filtered) and not in signup setup. Clean signout.
+            await supabase.auth.signOut();
+            setIsLoggedIn(false);
+            localStorage.setItem('vivid_is_logged_in', 'false');
+            setActiveRole('client');
+            localStorage.setItem('vivid_active_role', 'client');
+          }
+        } else {
+          setIsLoggedIn(false);
+          localStorage.setItem('vivid_is_logged_in', 'false');
+          setActiveRole('client');
+          localStorage.setItem('vivid_active_role', 'client');
+        }
+      });
+      if (res && res.data) {
+        subscription = res.data.subscription;
+      }
+    } catch (err) {
+      console.warn("Could not listen to auth state changes (offline failover active):", err);
+    }
+
+    return () => {
+      if (subscription) {
+        try {
+          subscription.unsubscribe();
+        } catch (unsubErr) {
+          console.warn("Error unsubscribing from auth:", unsubErr);
+        }
+      }
+    };
+  }, []);
+
   // Deep Link router (?profile=alex_video)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -248,7 +391,30 @@ export default function App() {
   };
 
   // Callback to update freelancer details
-  const handleUpdateProfile = (updated: FreelancerProfile) => {
+  const handleUpdateProfile = async (updated: FreelancerProfile) => {
+    let uploadedProfile = updated;
+    let resolvedProfile = updated;
+
+    try {
+      // 1. Process and upload any new base64 data URLs to Supabase Storage
+      uploadedProfile = await processProfileUploads(updated);
+
+      // 2. Resolve storage paths to signed URLs for local UI rendering
+      resolvedProfile = await resolveProfileUrls(uploadedProfile);
+
+      // 3. Track and delete old, replaced files from Storage
+      const oldProfile = freelancers.find(f => f.id === updated.id);
+      if (oldProfile) {
+        const removedPaths = findRemovedStoragePaths(oldProfile, uploadedProfile);
+        if (removedPaths.length > 0) {
+          deleteStorageFiles(removedPaths);
+        }
+      }
+    } catch (err) {
+      console.error("Error processing storage uploads/resolutions:", err);
+    }
+
+    let finalProfile = resolvedProfile;
     setFreelancers(prev => prev.map(f => {
       if (f.id === updated.id) {
         // If the owner themselves is editing this profile, enforce draft vs publish separation
@@ -257,7 +423,7 @@ export default function App() {
         if (isEditingSelf) {
           // If hasUnpublishedChanges is false, it's an explicit publish action
           if (updated.hasUnpublishedChanges === false) {
-            return updated;
+            finalProfile = resolvedProfile;
           } else {
             // It's a draft change. Keep/set hasUnpublishedChanges to true.
             // Cache the original profile (prior to this update) if publishedVersion isn't set yet.
@@ -267,27 +433,55 @@ export default function App() {
               delete cleanF.publishedVersion;
               publishedCopy = cleanF;
             }
-            return {
-              ...updated,
+            finalProfile = {
+              ...resolvedProfile,
               hasUnpublishedChanges: true,
               publishedVersion: publishedCopy
             };
           }
+        } else {
+          finalProfile = resolvedProfile;
         }
-        return updated;
+        return finalProfile;
       }
       return f;
     }));
+
+    try {
+      await upsertFreelancerProfile(uploadedProfile);
+      if (uploadedProfile.portfolio) {
+        await savePortfolioItems(uploadedProfile.id, uploadedProfile.portfolio);
+      }
+      if (uploadedProfile.feedPosts) {
+        await saveFeedPosts(uploadedProfile.id, uploadedProfile.feedPosts);
+      }
+    } catch (err) {
+      console.error("Error syncing profile update to Supabase:", err);
+    }
   };
 
   // Callback to permanently delete a profile
-  const handleDeleteProfile = (freelancerId: string) => {
+  const handleDeleteProfile = async (freelancerId: string) => {
+    const oldProfile = freelancers.find(f => f.id === freelancerId);
+    
     setFreelancers(prev => prev.filter(f => f.id !== freelancerId));
     setActiveRole('client');
     setCurrentTab('home');
     setToastMessage('Your creative profile was permanently deleted.');
     setToastType('info');
     setTimeout(() => setToastMessage(null), 4000);
+
+    try {
+      if (oldProfile) {
+        const paths = getAllStoragePaths(oldProfile);
+        if (paths.length > 0) {
+          await deleteStorageFiles(paths);
+        }
+      }
+      await deleteFreelancerProfile(freelancerId);
+    } catch (err) {
+      console.error("Error deleting profile from Supabase:", err);
+    }
   };
 
   // Helper to filter public, active, and published profiles
@@ -303,7 +497,7 @@ export default function App() {
   };
 
   // Callback to add public reviews (freelancers cannot delete them!)
-  const handleAddReview = (freelancerId: string, reviewBrief: Omit<Review, 'id' | 'date'>) => {
+  const handleAddReview = async (freelancerId: string, reviewBrief: Omit<Review, 'id' | 'date'>) => {
     const newReview: Review = {
       id: `r_${Date.now()}`,
       authorName: reviewBrief.authorName,
@@ -313,27 +507,42 @@ export default function App() {
       date: new Date().toISOString().split('T')[0]
     };
 
+    let updatedF: FreelancerProfile | null = null;
     setFreelancers(prev => prev.map(f => {
       if (f.id === freelancerId) {
-        return {
+        updatedF = {
           ...f,
           reviews: [...f.reviews, newReview]
         };
+        return updatedF;
       }
       return f;
     }));
     triggerToast(`Star Review posted!`);
+
+    if (updatedF) {
+      try {
+        await upsertFreelancerProfile(updatedF);
+      } catch (err) {
+        console.error("Error saving review to Supabase:", err);
+      }
+    }
   };
 
   // Callback to update a job brief (e.g., status, unlock counts)
-  const handleUpdateJob = (updatedJob: Job) => {
+  const handleUpdateJob = async (updatedJob: Job) => {
     setJobs(prev => prev.map(j => j.id === updatedJob.id ? updatedJob : j));
+    try {
+      await upsertJobInSupabase(updatedJob, activeRole !== 'client' ? activeRole : null);
+    } catch (err) {
+      console.error("Error updating job in Supabase:", err);
+    }
   };
 
   // Callback to post new freelance job briefs
-  const handlePostJob = (newBrief: Omit<Job, 'id' | 'postedDate' | 'applicantsCount'>) => {
+  const handlePostJob = async (newBrief: Omit<Job, 'id' | 'postedDate' | 'applicantsCount'>) => {
     const newJob: Job = {
-      id: `j_${Date.now()}`,
+      id: generateUUID(),
       title: newBrief.title,
       clientName: newBrief.clientName,
       clientCompany: newBrief.clientCompany || undefined,
@@ -382,9 +591,15 @@ export default function App() {
         return f;
       });
     });
+
+    try {
+      await upsertJobInSupabase(newJob, activeRole !== 'client' ? activeRole : null);
+    } catch (err) {
+      console.error("Error creating job in Supabase:", err);
+    }
   };
 
-  const handleJoinAsCreative = (newCreative: {
+  const handleJoinAsCreative = async (newCreative: {
     fullName: string;
     username: string;
     categories: CreativeCategory[];
@@ -398,9 +613,22 @@ export default function App() {
     avatarUrl?: string;
     coverUrl?: string;
   }) => {
+    // Attempt to match with current authenticated Supabase user
+    let profileId = `f_join_${Date.now()}`;
+    let authenticatedEmail = newCreative.email;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        profileId = user.id;
+        if (user.email) authenticatedEmail = user.email;
+      }
+    } catch (authErr) {
+      console.warn("Auth check during join deferred:", authErr);
+    }
+
     const primaryCategory = newCreative.categories[0] || 'photography';
     const newProfile: FreelancerProfile = {
-      id: `f_join_${Date.now()}`,
+      id: profileId,
       username: newCreative.username.toLowerCase().replace(/\s+/g, '_'),
       fullName: newCreative.fullName,
       title: `${primaryCategory.charAt(0).toUpperCase() + primaryCategory.slice(1)} Professional`,
@@ -416,7 +644,7 @@ export default function App() {
       subscribedCategories: newCreative.categories.length > 0 ? newCreative.categories : ['photography'],
       notificationCount: 0,
       unreadMessagesCount: 0,
-      email: newCreative.email,
+      email: authenticatedEmail,
       phone: newCreative.phone,
       whatsapp: newCreative.whatsapp,
       categorySections: [
@@ -451,6 +679,15 @@ export default function App() {
       ],
       portfolio: [],
       reviews: [],
+      feedPosts: [
+        {
+          id: `f_join_post_${Date.now()}`,
+          caption: "Welcome to my Talanta Hub profile!\n\nI'm excited to share my work, creative journey, and the projects I'm passionate about. Here you'll find my latest updates, portfolio highlights, and the services I offer.\n\nFeel free to connect, explore my work, and reach out if you'd like to collaborate on your next project.",
+          likes: 0,
+          timestamp: new Date().toISOString(),
+          isLikedByUser: false
+        }
+      ],
       analytics: {
         totalViews: 0,
         totalInquiries: 0,
@@ -474,6 +711,15 @@ export default function App() {
     localStorage.setItem('vivid_is_logged_in', 'true');
     setCurrentTab('dashboard');
     triggerToast(`Welcome to Talanta Hub, ${newProfile.fullName}!`);
+
+    try {
+      await upsertFreelancerProfile(newProfile);
+      if (newProfile.feedPosts) {
+        await saveFeedPosts(newProfile.id, newProfile.feedPosts);
+      }
+    } catch (err) {
+      console.error("Error saving newly joined profile to Supabase:", err);
+    }
   };
 
   // Contact form submission triggers a direct messaging flow!
@@ -635,10 +881,59 @@ export default function App() {
     );
   }
 
-  const handleLogout = () => {
+  const handleDeleteAllAccounts = async () => {
+    // Delete all storage files for all active freelancers before purging
+    try {
+      const allPaths = freelancers.flatMap(getAllStoragePaths);
+      if (allPaths.length > 0) {
+        await deleteStorageFiles(allPaths);
+      }
+    } catch (err) {
+      console.warn("Could not delete storage files during global purge:", err);
+    }
+
+    // 1. Set freelancers to empty
+    setFreelancers([]);
+    localStorage.setItem('vivid_freelancers', JSON.stringify([]));
+    
+    // 2. Reset conversations & jobs to start fully clean
+    setConversations([]);
+    localStorage.setItem('vivid_conversations', JSON.stringify([]));
+    setJobs([]);
+    localStorage.setItem('vivid_jobs', JSON.stringify([]));
+    
+    // 3. Reset session
     setIsLoggedIn(false);
     localStorage.setItem('vivid_is_logged_in', 'false');
     setActiveRole('client');
+    localStorage.setItem('vivid_active_role', 'client');
+    
+    // 4. Sign out from Supabase Auth
+    try {
+      await supabase.auth.signOut();
+    } catch (authErr) {
+      console.warn("Supabase auth signout deferred during delete all accounts:", authErr);
+    }
+    
+    // 5. Delete from Supabase
+    const success = await deleteAllProfilesAndJobsFromSupabase();
+    
+    if (success) {
+      triggerToast("All existing user accounts and data have been deleted successfully!");
+    } else {
+      triggerToast("Local accounts cleared (Supabase is currently offline).");
+    }
+  };
+
+  const handleLogout = async () => {
+    setIsLoggedIn(false);
+    localStorage.setItem('vivid_is_logged_in', 'false');
+    setActiveRole('client');
+    try {
+      await supabase.auth.signOut();
+    } catch (authErr) {
+      console.warn("Supabase auth signout error during logout:", authErr);
+    }
     triggerToast("You have been signed out successfully.");
   };
 
@@ -675,6 +970,7 @@ export default function App() {
         isLoggedIn={isLoggedIn}
         onLogout={handleLogout}
         onLogin={handleLogin}
+        onDeleteAllAccounts={handleDeleteAllAccounts}
       />
 
       {/* Main Content Viewport */}
@@ -840,6 +1136,74 @@ export default function App() {
           Where Talent Meets Opportunity
         </div>
       </footer>
+
+      {/* Floating System Admin Dashboard */}
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3 font-sans">
+        <AnimatePresence>
+          {showAdminPanel && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="w-80 bg-slate-900 border border-slate-800 text-white rounded-2xl shadow-2xl p-4 space-y-4"
+            >
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                <div className="flex items-center gap-2">
+                  <Wrench className="h-4 w-4 text-indigo-400" />
+                  <span className="text-xs font-black uppercase tracking-wider">System Admin Panel</span>
+                </div>
+                <button
+                  onClick={() => setShowAdminPanel(false)}
+                  className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors cursor-pointer"
+                  title="Close Panel"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="space-y-2 text-[11px] font-semibold text-slate-300">
+                <div className="flex justify-between">
+                  <span>Database Mode:</span>
+                  <span className="text-indigo-400 uppercase font-black">Supabase + Cache</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Active Accounts:</span>
+                  <span className="text-emerald-400 font-extrabold">{freelancers.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Active Role:</span>
+                  <span className="text-indigo-400 font-extrabold truncate max-w-[150px]">
+                    {activeRole === 'client' ? 'Client Partner' : (freelancers.find(f => f.id === activeRole)?.fullName || 'Creative')}
+                  </span>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-slate-800 space-y-2">
+                <button
+                  onClick={async () => {
+                    if (window.confirm("Are you sure you want to delete ALL registered user accounts, profiles, and associated data from both local storage and the database? This cannot be undone.")) {
+                      await handleDeleteAllAccounts();
+                      setShowAdminPanel(false);
+                    }
+                  }}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-black rounded-xl transition-all shadow-sm cursor-pointer uppercase tracking-wider"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>Delete All Accounts</span>
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <button
+          onClick={() => setShowAdminPanel(!showAdminPanel)}
+          className="h-12 w-12 bg-slate-900 hover:bg-slate-850 text-white rounded-full flex items-center justify-center shadow-2xl border border-slate-800 cursor-pointer transition-all hover:scale-105 active:scale-95"
+          title="System Admin & Database Panel"
+        >
+          <Settings className={`h-5 w-5 text-indigo-400 ${showAdminPanel ? 'rotate-90' : ''} transition-transform duration-300`} />
+        </button>
+      </div>
 
     </div>
   );

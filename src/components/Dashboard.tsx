@@ -16,6 +16,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { THEME_CONFIGS } from './ThemeStyles';
 import { ImageCropperModal } from './ImageCropperModal';
 import { DEFAULT_CLIENTS_MAP } from './NotableClients';
+import { formatTimelineTime } from '../utils/time';
 
 interface DashboardProps {
   profile: FreelancerProfile;
@@ -27,7 +28,7 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ profile, onUpdateProfile, onDeleteProfile, allJobs, onViewJob, onUpdateJob }: DashboardProps) {
-  const [activeTab, setActiveTab] = useState<'branding' | 'portfolio' | 'timeline' | 'notifications' | 'analytics' | 'password'>('branding');
+  const [activeTab, setActiveTab] = useState<'branding' | 'portfolio' | 'timeline' | 'notifications' | 'password'>('branding');
   
   // Change Password Form State
   const [currentPassword, setCurrentPassword] = useState('');
@@ -204,7 +205,7 @@ export default function Dashboard({ profile, onUpdateProfile, onDeleteProfile, a
   };
 
   const getTimelinePosts = () => {
-    if (profile.feedPosts && profile.feedPosts.length > 0) {
+    if (profile.feedPosts) {
       return profile.feedPosts;
     }
     const seed: any[] = [];
@@ -213,22 +214,22 @@ export default function Dashboard({ profile, onUpdateProfile, onDeleteProfile, a
         id: `${profile.id}_seed_1`,
         caption: `Just published a major piece in my portfolio: "${profile.portfolio[0].title}". So excited to share this update!`,
         imageUrl: profile.portfolio[0].imageUrl,
-        likes: 54,
-        timestamp: '3 hours ago',
+        likes: 0,
+        timestamp: profile.portfolio[0].date || '2026-05-12',
       });
     } else {
       seed.push({
         id: `${profile.id}_seed_1`,
         caption: `Welcome to my brand-new live workspace on Talanta Hub! Stay tuned as I share design updates.`,
-        likes: 12,
-        timestamp: '5 hours ago',
+        likes: 0,
+        timestamp: '2026-07-08',
       });
     }
     seed.push({
       id: `${profile.id}_seed_2`,
       caption: `Morning coffee thoughts: Craftsmanship lies in executing the request with absolute precision. Always design with intention!`,
-      likes: 28,
-      timestamp: 'Yesterday',
+      likes: 0,
+      timestamp: '2026-07-08',
     });
     return seed;
   };
@@ -297,7 +298,7 @@ export default function Dashboard({ profile, onUpdateProfile, onDeleteProfile, a
       caption: timelineCaption.trim() || undefined,
       imageUrl: timelineImageUrl.trim() || undefined,
       likes: 0,
-      timestamp: 'Just now',
+      timestamp: new Date().toISOString(),
       isLikedByUser: false
     };
 
@@ -1915,7 +1916,6 @@ export default function Dashboard({ profile, onUpdateProfile, onDeleteProfile, a
           { id: 'portfolio', label: 'Notable Clients & Brands', icon: ImageIcon },
           { id: 'timeline', label: 'My Timeline Posts', icon: Activity },
           { id: 'notifications', label: 'Subscriptions', icon: BellRing },
-          { id: 'analytics', label: 'Real-time Analytics', icon: TrendingUp },
           { id: 'password', label: 'Change Password', icon: Lock }
         ].map(tab => {
           const Icon = tab.icon;
@@ -3003,10 +3003,16 @@ export default function Dashboard({ profile, onUpdateProfile, onDeleteProfile, a
 
                           {/* Post Header */}
                           <div className="flex gap-2 items-center">
-                            <img src={profile.avatarUrl} alt={profile.fullName} className="h-7 w-7 rounded-full object-cover border border-slate-200 dark:border-slate-800" />
+                            {profile.avatarUrl ? (
+                              <img src={profile.avatarUrl} alt={profile.fullName} className="h-7 w-7 rounded-full object-cover border border-slate-200 dark:border-slate-800" />
+                            ) : (
+                              <div className="h-7 w-7 rounded-full bg-indigo-50 border border-slate-200 dark:border-slate-800 text-indigo-700 flex items-center justify-center font-extrabold text-[10px] uppercase animate-pulse">
+                                {profile.fullName[0]?.toUpperCase()}
+                              </div>
+                            )}
                             <div>
                               <span className="text-xs font-black text-slate-900 dark:text-slate-100 block leading-tight">{profile.fullName}</span>
-                              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">{post.timestamp}</span>
+                              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">{formatTimelineTime(post.timestamp)}</span>
                             </div>
                           </div>
 
@@ -3116,140 +3122,6 @@ export default function Dashboard({ profile, onUpdateProfile, onDeleteProfile, a
                 <p className="text-xs text-slate-400 font-semibold italic">Broadcasting live category matches in background...</p>
               </div>
 
-            </motion.div>
-          )}
-
-          {/* REAL-TIME ANALYTICS */}
-          {activeTab === 'analytics' && (
-            <motion.div
-              key="analytics"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-8"
-            >
-              <div className="space-y-1">
-                <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-indigo-600" />
-                  <span>Real-time Engagement Diagnostics</span>
-                </h2>
-                <p className="text-sm text-slate-400">Track impressions, conversions, and target reach dynamically in real-time.</p>
-              </div>
-
-              {/* Stats Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-slate-50 p-5 rounded-2xl space-y-2 border border-slate-100">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Total Page Views</span>
-                    <Eye className="h-4 w-4 text-indigo-500" />
-                  </div>
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-3xl font-black text-slate-900">{profile.analytics.totalViews}</span>
-                    <span className="text-xs text-emerald-500 font-bold">+12% hr</span>
-                  </div>
-                </div>
-
-                <div className="bg-slate-50 p-5 rounded-2xl space-y-2 border border-slate-100">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Lead Inquiries</span>
-                    <MessageSquare className="h-4 w-4 text-indigo-500" />
-                  </div>
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-3xl font-black text-slate-900">{profile.analytics.totalInquiries}</span>
-                    <span className="text-xs text-indigo-500 font-bold">Stable</span>
-                  </div>
-                </div>
-
-                <div className="bg-slate-50 p-5 rounded-2xl space-y-2 border border-slate-100">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Reach Conversion</span>
-                    <Award className="h-4 w-4 text-indigo-500" />
-                  </div>
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-3xl font-black text-slate-900">{profile.analytics.conversionRate}%</span>
-                    <span className="text-xs text-emerald-500 font-bold">+0.4%</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Beautiful custom charts (SVG-driven) */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
-                {/* 1. Views History Chart */}
-                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-4">
-                  <h3 className="text-xs font-bold text-slate-700 uppercase tracking-widest">Views Over Time (Last 7 Days)</h3>
-                  
-                  {/* SVG Bar Visual */}
-                  <div className="h-48 flex items-end justify-between pt-6 px-2">
-                    {profile.analytics.viewsHistory.map((item, index) => {
-                      const maxCount = Math.max(...profile.analytics.viewsHistory.map(h => h.count));
-                      const heightPercent = `${(item.count / maxCount) * 80}%`;
-                      return (
-                        <div key={index} className="flex flex-col items-center gap-2 flex-1 group">
-                          <span className="text-[10px] font-bold text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity -translate-y-1 bg-slate-900 text-white px-1.5 py-0.5 rounded-md">
-                            {item.count}
-                          </span>
-                          <div 
-                            style={{ height: heightPercent }} 
-                            className="w-8 bg-indigo-600 hover:bg-indigo-700 transition-all rounded-t-md cursor-pointer shadow-md shadow-indigo-600/20"
-                          />
-                          <span className="text-[10px] font-bold text-slate-500">{item.label}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* 2. Category reach Chart */}
-                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-4">
-                  <h3 className="text-xs font-bold text-slate-700 uppercase tracking-widest">Traffic Share by Specialty</h3>
-                  
-                  {/* Stacked Percentage bar */}
-                  <div className="space-y-4 pt-4">
-                    {profile.analytics.reachByCategory.map((item, idx) => (
-                      <div key={idx} className="space-y-1">
-                        <div className="flex justify-between text-xs font-bold">
-                          <span className="text-slate-600 capitalize">{item.category}</span>
-                          <span className="text-indigo-600">{item.percentage}%</span>
-                        </div>
-                        <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
-                          <div 
-                            style={{ width: `${item.percentage}%` }} 
-                            className={`h-full rounded-full ${
-                              idx === 0 ? 'bg-indigo-600' :
-                              idx === 1 ? 'bg-indigo-500' :
-                              idx === 2 ? 'bg-indigo-400' : 'bg-slate-300'
-                            }`}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Simulated Live Analytics Ticker logs */}
-              <div className="space-y-3">
-                <h3 className="text-xs font-bold text-slate-700 uppercase tracking-widest flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block animate-ping" />
-                  <span>Live Impression Tracker (Simulated Real-time)</span>
-                </h3>
-                
-                <div className="bg-slate-950 font-mono text-xs p-4 rounded-2xl text-emerald-400/90 space-y-2 border border-zinc-800 shadow-inner h-32 overflow-y-auto">
-                  <AnimatePresence>
-                    {liveImpressions.map((log, index) => (
-                      <motion.div
-                        key={log + index}
-                        initial={{ opacity: 0, x: -5 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        className="truncate"
-                      >
-                        {log}
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-                </div>
-              </div>
             </motion.div>
           )}
 
