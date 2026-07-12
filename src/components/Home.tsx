@@ -86,7 +86,7 @@ export default function Home({
 
   // Get average rating helper
   const getAverageRating = (profile: FreelancerProfile) => {
-    if (!profile.reviews || profile.reviews.length === 0) return 4.9;
+    if (!profile.reviews || profile.reviews.length === 0) return null;
     const sum = profile.reviews.reduce((acc, r) => acc + r.rating, 0);
     return parseFloat((sum / profile.reviews.length).toFixed(1));
   };
@@ -297,10 +297,14 @@ export default function Home({
                         <h3 className="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors truncate">
                           {freelancer.fullName}
                         </h3>
-                        <div className="flex items-center gap-0.5 shrink-0 text-indigo-600 font-bold text-[10px] bg-indigo-50 px-1.5 py-0.5 rounded">
-                          <Star className="h-3 w-3 fill-indigo-600 text-indigo-600" />
-                          <span>{avgRating}</span>
-                        </div>
+                        {avgRating !== null ? (
+                          <div className="flex items-center gap-0.5 shrink-0 text-indigo-600 font-bold text-[10px] bg-indigo-50 px-1.5 py-0.5 rounded">
+                            <Star className="h-3 w-3 fill-indigo-600 text-indigo-600" />
+                            <span>{avgRating}</span>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 font-medium shrink-0 bg-slate-50 px-1.5 py-0.5 rounded">New on Talanta Hub</span>
+                        )}
                       </div>
                       <p className="text-[11px] font-semibold text-indigo-600 truncate">{freelancer.title}</p>
                       <div className="flex items-center gap-1 text-[10px] text-slate-400 mt-0.5">

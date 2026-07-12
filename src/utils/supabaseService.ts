@@ -86,7 +86,23 @@ import { resolveProfileUrls, cleanProfileUrls, getStoragePathFromUrl } from './s
  *   status text default 'open'::text,
  *   unlock_count integer default 0,
  *   unlock_price_ksh integer default 50,
+ *   hired_creative_id uuid references public.profiles(id) on delete set null,
+ *   is_completed boolean default false,
  *   created_at timestamp with time zone default timezone('utc'::text, now()) not null
+ * );
+ * 
+ * -- 5. Create public.reviews table
+ * create table public.reviews (
+ *   id uuid default gen_random_uuid() primary key,
+ *   reviewer_id uuid references public.profiles(id) on delete cascade not null,
+ *   reviewed_user_id uuid references public.profiles(id) on delete cascade not null,
+ *   job_id uuid references public.jobs(id) on delete cascade not null,
+ *   rating integer not null check (rating >= 1 and rating <= 5),
+ *   comment text,
+ *   reviewer_name text not null,
+ *   reviewer_role text not null,
+ *   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+ *   unique (reviewer_id, job_id)
  * );
  * 
  * -- Enable Row Level Security (RLS)
@@ -94,6 +110,7 @@ import { resolveProfileUrls, cleanProfileUrls, getStoragePathFromUrl } from './s
  * alter table public.portfolio_items enable row level security;
  * alter table public.feed_posts enable row level security;
  * alter table public.jobs enable row level security;
+ * alter table public.reviews enable row level security;
  * 
  * -- Policies for public.profiles
  * create policy "Allow public read access to profiles" on public.profiles
@@ -122,6 +139,14 @@ import { resolveProfileUrls, cleanProfileUrls, getStoragePathFromUrl } from './s
  *   for insert with check (true);
  * create policy "Allow users to manage their own jobs" on public.jobs
  *   for all using (auth.uid() = user_id);
+ * 
+ * -- Policies for public.reviews
+ * create policy "Allow public read access to reviews" on public.reviews
+ *   for select using (true);
+ * create policy "Allow anyone to insert reviews" on public.reviews
+ *   for insert with check (true);
+ * create policy "Allow users to manage their own reviews" on public.reviews
+ *   for all using (auth.uid() = reviewer_id);
  * 
  */
 
@@ -276,14 +301,17 @@ export function mapJobFromDB(item: any): Job {
     deliveryDeadline: item.delivery_deadline || '',
     status: item.status || 'open',
     unlockCount: item.unlock_count || 0,
-    unlockPriceKsh: item.unlock_price_ksh || 50
+    unlockPriceKsh: item.unlock_price_ksh || 50,
+    hiredCreativeId: item.hired_creative_id || undefined,
+    isCompleted: item.is_completed === true,
+    userId: item.user_id || undefined
   };
 }
 
 export function mapJobToDB(job: Job, userId?: string | null): any {
   return {
     id: job.id,
-    user_id: userId || null,
+    user_id: job.userId || userId || null,
     title: job.title,
     client_name: job.clientName,
     client_company: job.clientCompany,
@@ -300,13 +328,17 @@ export function mapJobToDB(job: Job, userId?: string | null): any {
     delivery_deadline: job.deliveryDeadline,
     status: job.status,
     unlock_count: job.unlockCount,
-    unlock_price_ksh: job.unlockPriceKsh
+    unlock_price_ksh: job.unlockPriceKsh,
+    hired_creative_id: job.hiredCreativeId || null,
+    is_completed: job.isCompleted || false
   };
 }
 
 // ============================================================================
 // SUPABASE OPERATIONS SERVICE
 // ============================================================================
+
+export const PROFILE_PUBLIC_COLUMNS = 'id, username, full_name, title, avatar_url, cover_url, bio, location, hourly_rate, category, skills, theme, layout_order, category_sections, reviews, analytics, subscribed_categories, notification_count, unread_messages_count, wallet_balance_ksh, unlocked_job_ids, is_public, created_at';
 
 /**
  * Loads all freelancer profiles, their portfolio items, and feed posts in a single relational join.
@@ -315,7 +347,7 @@ export async function loadFreelancerProfilesFromSupabase(): Promise<FreelancerPr
   try {
     const { data: profiles, error: profileErr } = await supabase
       .from('profiles')
-      .select('*');
+      .select(PROFILE_PUBLIC_COLUMNS);
 
     if (profileErr) throw profileErr;
     if (!profiles || profiles.length === 0) return [];
@@ -369,7 +401,28 @@ export async function loadFreelancerProfilesFromSupabase(): Promise<FreelancerPr
       return acc;
     }, {});
 
-    const mappedProfiles = filteredProfiles.map(p => mapProfileFromDB(p, portfolioMap[p.id] || [], postsMap[p.id] || []));
+    const dbReviews = await fetchAllReviews();
+    const reviewsMap = dbReviews.reduce((acc: any, r: any) => {
+      acc[r.reviewed_user_id] = acc[r.reviewed_user_id] || [];
+      acc[r.reviewed_user_id].push({
+        id: r.id,
+        authorName: r.reviewer_name,
+        authorRole: r.reviewer_role,
+        rating: r.rating,
+        comment: r.comment,
+        date: r.created_at ? new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recently',
+        jobId: r.job_id,
+        reviewerId: r.reviewer_id,
+        reviewedUserId: r.reviewed_user_id
+      });
+      return acc;
+    }, {});
+
+    const mappedProfiles = filteredProfiles.map(p => {
+      const prof = mapProfileFromDB(p, portfolioMap[p.id] || [], postsMap[p.id] || []);
+      prof.reviews = reviewsMap[p.id] || [];
+      return prof;
+    });
     return await Promise.all(mappedProfiles.map(resolveProfileUrls));
   } catch (error: any) {
     if (error && (error.code === '42P01' || error.message?.includes('relation') || error.message?.includes('does not exist'))) {
@@ -514,6 +567,8 @@ export async function saveFeedPosts(profileId: string, posts: FeedPost[]): Promi
 // JOB BOARD OPERATIONS
 // ============================================================================
 
+export const JOB_PUBLIC_COLUMNS = 'id, user_id, title, client_name, client_company, category, budget_range, location, description, posted_date, applicants_count, start_date, delivery_deadline, status, unlock_count, unlock_price_ksh, hired_creative_id, is_completed, created_at';
+
 /**
  * Loads all jobs from Supabase.
  */
@@ -521,7 +576,7 @@ export async function loadJobsFromSupabase(): Promise<Job[] | null> {
   try {
     const { data, error } = await supabase
       .from('jobs')
-      .select('*')
+      .select(JOB_PUBLIC_COLUMNS)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -622,4 +677,362 @@ export async function deleteAllProfilesAndJobsFromSupabase(): Promise<boolean> {
     return true; // Return true because our local filter is fully active and guarantees a clean slate
   }
 }
+
+// ============================================================================
+// REAL DATABASE RATING & REVIEWS OPERATIONS (WITH SEAMLESS FALLBACK)
+// ============================================================================
+
+function getLocalFallbackReviews(): any[] {
+  const saved = localStorage.getItem('vivid_fallback_reviews');
+  return saved ? JSON.parse(saved) : [];
+}
+
+function saveLocalFallbackReviews(reviews: any[]) {
+  localStorage.setItem('vivid_fallback_reviews', JSON.stringify(reviews));
+}
+
+export async function fetchReviewsForUser(userId: string): Promise<any[]> {
+  try {
+    const { data, error } = await supabase
+      .from('reviews')
+      .select('*')
+      .eq('reviewed_user_id', userId);
+    
+    if (error) {
+      if (error.code === '42P01' || error.message?.includes('relation')) {
+        throw new Error('Table missing');
+      }
+      throw error;
+    }
+    return data || [];
+  } catch (err) {
+    const local = getLocalFallbackReviews();
+    return local.filter(r => r.reviewed_user_id === userId);
+  }
+}
+
+export async function fetchAllReviews(): Promise<any[]> {
+  try {
+    const { data, error } = await supabase
+      .from('reviews')
+      .select('*');
+    
+    if (error) {
+      if (error.code === '42P01' || error.message?.includes('relation')) {
+        throw new Error('Table missing');
+      }
+      throw error;
+    }
+    return data || [];
+  } catch (err) {
+    return getLocalFallbackReviews();
+  }
+}
+
+export async function createReviewInSupabase(review: {
+  reviewerId: string;
+  reviewedUserId: string;
+  jobId?: string;
+  rating: number;
+  comment: string;
+  reviewerName: string;
+  reviewerRole: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const newRow = {
+    reviewer_id: review.reviewerId,
+    reviewed_user_id: review.reviewedUserId,
+    job_id: review.jobId || null,
+    rating: review.rating,
+    comment: review.comment,
+    reviewer_name: review.reviewerName,
+    reviewer_role: review.reviewerRole,
+    created_at: new Date().toISOString()
+  };
+
+  try {
+    const { error } = await supabase
+      .from('reviews')
+      .insert([newRow]);
+    
+    if (error) {
+      if (error.code === '23505') {
+        return { success: false, error: 'You have already reviewed this user.' };
+      }
+      if (error.code === '42P01' || error.message?.includes('relation')) {
+        throw new Error('Table missing');
+      }
+      return { success: false, error: error.message };
+    }
+    return { success: true };
+  } catch (err) {
+    const local = getLocalFallbackReviews();
+    const exists = local.some(r => 
+      r.reviewer_id === review.reviewerId && 
+      r.reviewed_user_id === review.reviewedUserId &&
+      ((!review.jobId && !r.job_id) || r.job_id === review.jobId)
+    );
+    if (exists) {
+      return { success: false, error: 'You have already reviewed this user.' };
+    }
+    const createdReview = {
+      id: generateUUID(),
+      ...newRow
+    };
+    local.push(createdReview);
+    saveLocalFallbackReviews(local);
+    return { success: true };
+  }
+}
+
+// CONTACT UNLOCKS SYSTEM
+// ============================================================================
+
+export function getLocalContactUnlocks(): any[] {
+  const saved = localStorage.getItem('vivid_contact_unlocks');
+  return saved ? JSON.parse(saved) : [];
+}
+
+export function saveLocalContactUnlocks(unlocks: any[]) {
+  localStorage.setItem('vivid_contact_unlocks', JSON.stringify(unlocks));
+}
+
+export async function checkIfContactUnlocked(buyerId: string, creativeId?: string, jobId?: string): Promise<boolean> {
+  if (!buyerId) return false;
+
+  // Local storage check fallback first or alongside Supabase
+  const localUnlocks = getLocalContactUnlocks();
+  const isUnlockedLocally = localUnlocks.some(u => 
+    u.buyerId === buyerId && 
+    ((creativeId && u.creativeId === creativeId) || (jobId && u.jobId === jobId))
+  );
+  if (isUnlockedLocally) return true;
+
+  if (!isValidUUID(buyerId)) return false;
+
+  try {
+    let query = supabase
+      .from('contact_unlocks')
+      .select('id')
+      .eq('buyer_id', buyerId)
+      .eq('payment_status', 'completed');
+    
+    if (creativeId) {
+      if (!isValidUUID(creativeId)) return false;
+      query = query.eq('creative_id', creativeId);
+    }
+    if (jobId) {
+      if (!isValidUUID(jobId)) return false;
+      query = query.eq('job_id', jobId);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      if (error.code === '42P01' || error.message?.includes('relation')) {
+        return isUnlockedLocally;
+      }
+      throw error;
+    }
+    return data && data.length > 0;
+  } catch (err) {
+    console.warn('Error checking contact unlock from Supabase:', err);
+    return isUnlockedLocally;
+  }
+}
+
+export async function createContactUnlock(unlock: { 
+  buyerId: string; 
+  creativeId?: string; 
+  jobId?: string; 
+  amount: number; 
+  paymentStatus: string; 
+}): Promise<{ success: boolean; error?: string }> {
+  if (!unlock.buyerId) {
+    return { success: false, error: 'User is not logged in.' };
+  }
+
+  const newLocalUnlock = {
+    id: generateUUID(),
+    buyerId: unlock.buyerId,
+    creativeId: unlock.creativeId || null,
+    jobId: unlock.jobId || null,
+    amount: unlock.amount,
+    paymentStatus: unlock.paymentStatus,
+    createdAt: new Date().toISOString()
+  };
+
+  if (!isValidUUID(unlock.buyerId)) {
+    const local = getLocalContactUnlocks();
+    local.push(newLocalUnlock);
+    saveLocalContactUnlocks(local);
+    return { success: true };
+  }
+
+  const newRow = {
+    buyer_id: unlock.buyerId,
+    creative_id: unlock.creativeId || null,
+    job_id: unlock.jobId || null,
+    amount: unlock.amount,
+    payment_status: unlock.paymentStatus,
+    created_at: new Date().toISOString()
+  };
+
+  try {
+    const { error } = await supabase
+      .from('contact_unlocks')
+      .insert([newRow]);
+    
+    if (error) {
+      if (error.code === '42P01' || error.message?.includes('relation')) {
+        throw new Error('Table missing');
+      }
+      return { success: false, error: error.message };
+    }
+    return { success: true };
+  } catch (err) {
+    // Fallback to local storage
+    const local = getLocalContactUnlocks();
+    local.push(newLocalUnlock);
+    saveLocalContactUnlocks(local);
+    return { success: true };
+  }
+}
+
+export async function fetchMyOwnContactDetails(userId: string): Promise<{ email?: string; phone?: string; whatsapp?: string } | null> {
+  if (!isValidUUID(userId)) {
+    // Return from local storage profile if not a valid UUID
+    const saved = localStorage.getItem('vivid_freelancers');
+    if (saved) {
+      const freelancersList = JSON.parse(saved);
+      const found = freelancersList.find((f: any) => f.id === userId);
+      if (found) {
+        return {
+          email: found.email || '',
+          phone: found.phone || '',
+          whatsapp: found.whatsapp || ''
+        };
+      }
+    }
+    return null;
+  }
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('email, phone, whatsapp')
+      .eq('id', userId)
+      .single();
+    if (error) throw error;
+    return {
+      email: data.email || '',
+      phone: data.phone || '',
+      whatsapp: data.whatsapp || ''
+    };
+  } catch (err) {
+    console.warn('Error fetching own contact details, falling back to local:', err);
+    const saved = localStorage.getItem('vivid_freelancers');
+    if (saved) {
+      const freelancersList = JSON.parse(saved);
+      const found = freelancersList.find((f: any) => f.id === userId);
+      if (found) {
+        return {
+          email: found.email || '',
+          phone: found.phone || '',
+          whatsapp: found.whatsapp || ''
+        };
+      }
+    }
+    return null;
+  }
+}
+
+export async function fetchUnlockedContactDetails(
+  buyerId: string, 
+  creativeId?: string, 
+  jobId?: string
+): Promise<{ email?: string; phone?: string; whatsapp?: string } | null> {
+  if (!buyerId) return null;
+
+  // Verify access
+  let hasAccess = false;
+  if (creativeId && buyerId === creativeId) {
+    hasAccess = true;
+  } else {
+    hasAccess = await checkIfContactUnlocked(buyerId, creativeId, jobId);
+  }
+
+  if (!hasAccess) {
+    console.warn('Unauthorized attempt to fetch contact details.');
+    return null;
+  }
+
+  // Fetch from Supabase if valid UUIDs
+  if (creativeId && isValidUUID(creativeId)) {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('email, phone, whatsapp')
+        .eq('id', creativeId)
+        .single();
+      if (error) throw error;
+      return {
+        email: data.email || '',
+        phone: data.phone || '',
+        whatsapp: data.whatsapp || ''
+      };
+    } catch (err) {
+      console.warn('Error fetching unlocked creative details from Supabase:', err);
+    }
+  }
+
+  if (jobId && isValidUUID(jobId)) {
+    try {
+      const { data, error } = await supabase
+        .from('jobs')
+        .select('client_email, client_phone, client_whatsapp')
+        .eq('id', jobId)
+        .single();
+      if (error) throw error;
+      return {
+        email: data.client_email || '',
+        phone: data.client_phone || '',
+        whatsapp: data.client_whatsapp || ''
+      };
+    } catch (err) {
+      console.warn('Error fetching unlocked job details from Supabase:', err);
+    }
+  }
+
+  // Fallback to offline/local storage profiles/jobs mapping
+  if (creativeId) {
+    const saved = localStorage.getItem('vivid_freelancers');
+    if (saved) {
+      const freelancersList = JSON.parse(saved);
+      const found = freelancersList.find((f: any) => f.id === creativeId);
+      if (found) {
+        return {
+          email: found.email || '',
+          phone: found.phone || '',
+          whatsapp: found.whatsapp || ''
+        };
+      }
+    }
+  }
+
+  if (jobId) {
+    const saved = localStorage.getItem('vivid_jobs');
+    if (saved) {
+      const jobsList = JSON.parse(saved);
+      const found = jobsList.find((j: any) => j.id === jobId);
+      if (found) {
+        return {
+          email: found.clientEmail || '',
+          phone: found.clientPhone || '',
+          whatsapp: found.clientWhatsapp || ''
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
 

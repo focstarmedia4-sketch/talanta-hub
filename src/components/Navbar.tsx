@@ -398,14 +398,14 @@ export default function Navbar({
         username: name.toLowerCase().replace(/\s+/g, '_') + '_google',
         categories: ['photography', 'videography'],
         hourlyRate: 4000,
-        bio: `${name} is a creative practitioner specialized in digital production and content creation in Kenya. Securely authenticated via Google.`,
-        location: "Nairobi County",
-        skills: ['Digital Production', 'Photography', 'Videography', 'Social Media'],
+        bio: `Securely authenticated via Google. Complete your profile to add your contact information.`,
+        location: "",
+        skills: [],
         email: email,
-        phone: "+254 700 111 222",
-        whatsapp: "+254 700 111 222",
+        phone: "",
+        whatsapp: "",
         avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200",
-        coverUrl: "https://images.unsplash.com/photo-1557683316-973673baf926?auto=format&fit=crop&q=80&w=1200",
+        coverUrl: "",
         password: "google_oauth_bypass"
       });
       
@@ -985,20 +985,7 @@ export default function Navbar({
                         <span>Log Out</span>
                       </button>
 
-                      {onDeleteAllAccounts && (
-                        <button
-                          onClick={async () => {
-                            if (window.confirm("WARNING: Are you sure you want to permanently delete ALL existing user accounts and reset all application data? This action cannot be undone.")) {
-                              await onDeleteAllAccounts();
-                              setShowAccountDropdown(false);
-                            }
-                          }}
-                          className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 text-[10px] font-black rounded-xl transition-all cursor-pointer border border-amber-150 uppercase tracking-wider"
-                        >
-                          <Trash2 className="h-3.5 w-3.5 shrink-0" />
-                          <span>Delete All Accounts</span>
-                        </button>
-                      )}
+
                     </div>
                   </motion.div>
                 )}

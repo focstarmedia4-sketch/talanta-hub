@@ -51,7 +51,7 @@ export interface CategorySection {
 export type ProfileTheme = 'slate' | 'warm' | 'cyber' | 'brutalist';
 
 export interface LayoutSection {
-  id: 'hero' | 'categories' | 'gallery' | 'analytics' | 'reviews' | 'contact';
+  id: 'hero' | 'categories' | 'gallery' | 'analytics' | 'reviews' | 'contact' | 'offers';
   title: string;
   enabled: boolean;
 }
@@ -63,6 +63,9 @@ export interface Review {
   rating: number; // 1-5
   comment: string;
   date: string;
+  jobId?: string;
+  reviewerId?: string;
+  reviewedUserId?: string;
 }
 
 export interface AnalyticsSnapshot {
@@ -95,7 +98,7 @@ export interface FreelancerProfile {
   category: CreativeCategory;
   skills: string[];
   theme: ProfileTheme;
-  layoutOrder: ('hero' | 'categories' | 'gallery' | 'analytics' | 'reviews' | 'contact')[];
+  layoutOrder: ('hero' | 'categories' | 'gallery' | 'analytics' | 'reviews' | 'contact' | 'offers')[];
   categorySections: CategorySection[];
   portfolio: PortfolioItem[];
   reviews: Review[];
@@ -109,6 +112,7 @@ export interface FreelancerProfile {
   feedPosts?: FeedPost[];
   notableClients?: { id: string; name: string; logoUrl?: string; website?: string }[];
   requestedCalls?: CallRequest[];
+  offers?: Offer[];
   avatarZoom?: number;
   walletBalanceKsh?: number;
   unlockedJobIds?: string[];
@@ -136,6 +140,16 @@ export interface CallRequest {
   createdAt: string;
 }
 
+export interface Offer {
+  id: string;
+  title: string;
+  price: string;
+  startDate: string;
+  endDate: string;
+  details: string;
+  isActive?: boolean;
+}
+
 export interface Job {
   id: string;
   title: string;
@@ -155,6 +169,9 @@ export interface Job {
   status?: 'open' | 'closed';
   unlockCount?: number;
   unlockPriceKsh?: number;
+  hiredCreativeId?: string;
+  isCompleted?: boolean;
+  userId?: string;
 }
 
 export interface Message {
@@ -186,3 +203,14 @@ export interface PlatformNotification {
   jobId?: string;
   read: boolean;
 }
+
+export interface ContactUnlock {
+  id: string;
+  buyerId: string;
+  creativeId?: string;
+  jobId?: string;
+  amount: number;
+  paymentStatus: string;
+  createdAt: string;
+}
+

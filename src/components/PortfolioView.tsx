@@ -3,16 +3,17 @@
  * SPDX-License-Identifier: Apache-2.5
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   ArrowLeft, Share2, Star, Send, MapPin, Search,
   ExternalLink, Mail, CheckCircle, Flame, MessageSquare, Phone,
   Heart, Camera, Plus, Image as ImageIcon, Users, X, ChevronLeft, ChevronRight, Pencil, UploadCloud,
-  Lock
+  Lock, Unlock, AlertCircle, Check, Tag, Calendar, Percent, Megaphone, PhoneCall
 } from 'lucide-react';
-import { FreelancerProfile, Review, CreativeCategory, PortfolioItem, FeedPost } from '../types';
+import { FreelancerProfile, Review, CreativeCategory, PortfolioItem, FeedPost, Job } from '../types';
 import { THEME_CONFIGS } from './ThemeStyles';
 import { motion, AnimatePresence } from 'motion/react';
+import { checkIfContactUnlocked, createContactUnlock, fetchUnlockedContactDetails } from '../utils/supabaseService';
 import { NotableClients } from './NotableClients';
 import { RequestCall } from './RequestCall';
 import { ImageCropperModal } from './ImageCropperModal';
@@ -22,12 +23,13 @@ interface PortfolioViewProps {
   profile: FreelancerProfile;
   activeRole?: string;
   onUpdateProfile?: (updated: FreelancerProfile) => void;
-  onAddReview: (freelancerId: string, review: Omit<Review, 'id' | 'date'>) => void;
+  onAddReview: (freelancerId: string, review: Omit<Review, 'id' | 'date'>, specificJobId?: string) => any;
   onSendMessageFromContact: (freelancerId: string, messageText: string, clientName: string) => void;
   onBackToMarketplace: () => void;
   allFreelancers?: FreelancerProfile[];
   onSelectFreelancer?: (id: string) => void;
   isLoggedIn?: boolean;
+  jobs?: Job[];
 }
 
 const limitWords = (str: string, maxWords: number = 20) => {
@@ -224,10 +226,11 @@ export default function PortfolioView({
   onBackToMarketplace,
   allFreelancers = [],
   onSelectFreelancer,
-  isLoggedIn = true
+  isLoggedIn = true,
+  jobs = []
 }: PortfolioViewProps) {
   const theme = THEME_CONFIGS.slate;
-  
+
   // Scroll to top on profile change/mount
   React.useEffect(() => {
     window.scrollTo(0, 0);
@@ -235,6 +238,63 @@ export default function PortfolioView({
 
   // Is current viewer the owner of this profile?
   const isOwner = activeRole === profile.id;
+
+  // Secure Contact Unlocks States
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [unlockedContacts, setUnlockedContacts] = useState<{ email?: string; phone?: string; whatsapp?: string } | null>(null);
+  const [checkingUnlock, setCheckingUnlock] = useState(false);
+
+  // Pesapal Payment States inside PortfolioView
+  const [showPesapalModal, setShowPesapalModal] = useState(false);
+  const [pesapalPhone, setPesapalPhone] = useState('');
+  const [pesapalEmail, setPesapalEmail] = useState('');
+  const [pesapalMethod, setPesapalMethod] = useState<'mpesa' | 'card'>('mpesa');
+  const [mpesaPin, setMpesaPin] = useState('');
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [paying, setPaying] = useState(false);
+  const [expandedOfferId, setExpandedOfferId] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function checkAndLoadContacts() {
+      if (isOwner) {
+        setIsUnlocked(true);
+        setUnlockedContacts({
+          email: profile.email || '',
+          phone: profile.phone || '',
+          whatsapp: profile.whatsapp || ''
+        });
+        return;
+      }
+
+      if (!isLoggedIn || !activeRole || activeRole === 'visitor' || activeRole === 'client') {
+        setIsUnlocked(false);
+        setUnlockedContacts(null);
+        return;
+      }
+
+      setCheckingUnlock(true);
+      const hasUnlocked = await checkIfContactUnlocked(activeRole, profile.id);
+      setIsUnlocked(hasUnlocked);
+
+      if (hasUnlocked) {
+        const details = await fetchUnlockedContactDetails(activeRole, profile.id);
+        setUnlockedContacts(details);
+      } else {
+        setUnlockedContacts(null);
+      }
+      setCheckingUnlock(false);
+    }
+
+    checkAndLoadContacts();
+  }, [profile.id, activeRole, isLoggedIn, isOwner, profile.email, profile.phone, profile.whatsapp]);
+
+  const completedEngagements = (jobs || []).filter(job => 
+    job.isCompleted && (
+      (job.userId === activeRole && job.hiredCreativeId === profile.id) ||
+      (job.userId === profile.id && job.hiredCreativeId === activeRole)
+    )
+  );
 
   // Local state for creative feed posts
   const [feedPosts, setFeedPosts] = useState<FeedPost[]>(() => {
@@ -377,6 +437,23 @@ export default function PortfolioView({
   const [reviewRating, setReviewRating] = useState<number>(5);
   const [reviewComment, setReviewComment] = useState('');
   const [reviewSuccess, setReviewSuccess] = useState(false);
+  const [selectedJobToReview, setSelectedJobToReview] = useState('');
+
+  // Prepopulate review author name and role if logged in
+  React.useEffect(() => {
+    if (isLoggedIn && activeRole) {
+      if (activeRole === 'client') {
+        if (!reviewAuthor) setReviewAuthor('Client Partner');
+        if (!reviewRole) setReviewRole('Client Partner');
+      } else {
+        const matchingProfile = allFreelancers.find(f => f.id === activeRole);
+        if (matchingProfile) {
+          if (!reviewAuthor) setReviewAuthor(matchingProfile.fullName);
+          if (!reviewRole) setReviewRole(matchingProfile.title || 'Freelancer Partner');
+        }
+      }
+    }
+  }, [isLoggedIn, activeRole, allFreelancers]);
 
   // Reviews view limit state
   const [reviewsLimit, setReviewsLimit] = useState(3);
@@ -430,21 +507,25 @@ export default function PortfolioView({
     });
   };
 
-  const handleReviewSubmit = (e: React.FormEvent) => {
+  const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reviewAuthor || !reviewComment) return;
 
-    onAddReview(profile.id, {
+    const res = await onAddReview(profile.id, {
       authorName: reviewAuthor,
       authorRole: reviewRole || 'Visitor',
       rating: reviewRating,
       comment: reviewComment
-    });
+    }, selectedJobToReview);
+
+    // Only clear on success if returned
+    if (res && res.success === false) return;
 
     setReviewAuthor('');
     setReviewRole('');
     setReviewRating(5);
     setReviewComment('');
+    setSelectedJobToReview('');
     setReviewSuccess(true);
     setTimeout(() => setReviewSuccess(false), 4000);
   };
@@ -484,7 +565,7 @@ export default function PortfolioView({
   });
 
   const getAverageRating = () => {
-    if (profile.reviews.length === 0) return 5.0;
+    if (!profile.reviews || profile.reviews.length === 0) return null;
     const sum = profile.reviews.reduce((acc, r) => acc + r.rating, 0);
     return Number((sum / profile.reviews.length).toFixed(1));
   };
@@ -512,10 +593,16 @@ export default function PortfolioView({
                 </div>
 
                 {/* Star review overlay */}
-                <div className="flex items-center gap-1 bg-indigo-600 text-white px-3.5 py-1.5 rounded-full font-black text-sm shadow-sm select-none">
-                  <Star className="h-4 w-4 fill-white" />
-                  <span>{getAverageRating()} Rating</span>
-                </div>
+                {getAverageRating() !== null ? (
+                  <div className="flex items-center gap-1 bg-indigo-600 text-white px-3.5 py-1.5 rounded-full font-black text-sm shadow-sm select-none">
+                    <Star className="h-4 w-4 fill-white" />
+                    <span>{getAverageRating()} Rating</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 bg-slate-100 border border-slate-250 text-slate-500 px-3.5 py-1.5 rounded-full font-bold text-xs select-none">
+                    New on Talanta Hub
+                  </div>
+                )}
               </div>
 
               {/* Bio block */}
@@ -940,30 +1027,60 @@ export default function PortfolioView({
                 <div className={`${theme.cardBg} ${theme.cardBorder} ${theme.cardRadius} ${theme.glowEffect} p-5 md:p-6 space-y-4`}>
                   <h3 className="text-sm font-black uppercase tracking-wider">Leave a Star Review</h3>
                   
-                  <form onSubmit={handleReviewSubmit} className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black uppercase block">Your Full Name *</label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="e.g. Liam Sterling"
-                          value={reviewAuthor}
-                          onChange={(e) => setReviewAuthor(e.target.value)}
-                          className="w-full px-3 py-2 bg-black/5 border border-black/10 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-semibold"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black uppercase block">Your Role / Designation</label>
-                        <input
-                          type="text"
-                          placeholder="e.g. Creative Lead at Vogue"
-                          value={reviewRole}
-                          onChange={(e) => setReviewRole(e.target.value)}
-                          className="w-full px-3 py-2 bg-black/5 border border-black/10 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-semibold"
-                        />
-                      </div>
+                  {!isLoggedIn ? (
+                    <div className="space-y-3 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 text-center">
+                      <p className="text-xs font-bold text-indigo-950 leading-relaxed">
+                        Please sign in or sign up to leave a star review.
+                      </p>
                     </div>
+                  ) : isOwner ? (
+                    <div className="text-center py-6 bg-slate-50 rounded-xl text-xs font-bold text-slate-500">
+                      You cannot review your own profile.
+                    </div>
+                  ) : (
+                    <form onSubmit={handleReviewSubmit} className="space-y-4">
+                      {/* Select Project to Review (Optional, shown only if completed engagements exist) */}
+                      {completedEngagements.length > 0 && (
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black uppercase block text-indigo-600">Select Completed Project (Optional)</label>
+                          <select
+                            value={selectedJobToReview}
+                            onChange={(e) => setSelectedJobToReview(e.target.value)}
+                            className="w-full px-3 py-2 bg-indigo-50/50 border border-indigo-100 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-semibold"
+                          >
+                            <option value="">-- Choose project --</option>
+                            {completedEngagements.map(job => (
+                              <option key={job.id} value={job.id}>
+                                {job.title}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black uppercase block">Your Full Name *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. Liam Sterling"
+                            value={reviewAuthor}
+                            onChange={(e) => setReviewAuthor(e.target.value)}
+                            className="w-full px-3 py-2 bg-black/5 border border-black/10 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-semibold"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black uppercase block">Your Role / Designation</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Creative Lead at Vogue"
+                            value={reviewRole}
+                            onChange={(e) => setReviewRole(e.target.value)}
+                            className="w-full px-3 py-2 bg-black/5 border border-black/10 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-semibold"
+                          />
+                        </div>
+                      </div>
 
                     {/* Stars selector */}
                     <div className="space-y-1">
@@ -1016,6 +1133,7 @@ export default function PortfolioView({
                       </AnimatePresence>
                     </div>
                   </form>
+                  )}
                 </div>
               </div>
 
@@ -1103,7 +1221,110 @@ export default function PortfolioView({
         );
       }
 
-      case 'contact':
+      case 'offers': {
+        const activeOffers = (profile.offers || []).filter(o => o.isActive !== false);
+        if (activeOffers.length === 0) return null;
+
+        return (
+          <section key="offers" id="offers" className="space-y-6">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Tag className="h-5 w-5 text-indigo-600 animate-pulse" />
+                <h2 className="text-xl md:text-2xl font-black tracking-tight uppercase text-slate-900">
+                  Active Promotions & Custom Offers
+                </h2>
+              </div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Exclusive direct discounts, service packages, and promotional deals offered by {profile.fullName}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {activeOffers.map((offer) => {
+                const isExpanded = expandedOfferId === offer.id;
+                return (
+                  <div
+                    key={offer.id}
+                    className="bg-white border-2 border-indigo-600/20 hover:border-indigo-600 rounded-3xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-4 relative overflow-hidden group"
+                  >
+                    {/* Glowing Accent */}
+                    <div className="absolute -right-8 -top-8 w-20 h-20 bg-indigo-100 rounded-full blur-xl pointer-events-none group-hover:bg-indigo-200/50 transition-colors" />
+
+                    <div className="space-y-3 relative z-10">
+                      {/* Badge / Price Row */}
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="inline-flex items-center gap-1 text-xs font-black uppercase tracking-wider bg-indigo-50 text-indigo-600 px-3 py-1 rounded-xl border border-indigo-100 shadow-2xs">
+                          <Percent className="h-3.5 w-3.5" />
+                          <span>{offer.price}</span>
+                        </span>
+                        
+                        <span className="text-[9px] font-black uppercase text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                          Active Promo
+                        </span>
+                      </div>
+
+                      {/* Offer Title */}
+                      <h3 className="text-md font-black text-slate-900 leading-tight">
+                        {offer.title}
+                      </h3>
+
+                      {/* Validity Dates */}
+                      <div className="flex items-center gap-1.5 text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">
+                        <Calendar className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                        <span>Valid: {offer.startDate} to {offer.endDate}</span>
+                      </div>
+
+                      {/* Interactive Inclusions Expander */}
+                      {isExpanded ? (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="pt-2"
+                        >
+                          <div className="text-xs text-slate-700 leading-relaxed bg-slate-50 border border-slate-100 p-3.5 rounded-2xl italic whitespace-pre-wrap">
+                            {offer.details}
+                          </div>
+                        </motion.div>
+                      ) : null}
+                    </div>
+
+                    {/* Actions Row */}
+                    <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3 mt-1 relative z-10">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedOfferId(isExpanded ? null : offer.id)}
+                        className="text-[10px] font-black uppercase text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer flex items-center gap-1"
+                      >
+                        {isExpanded ? 'Hide Offer Inclusions' : 'View Offer Inclusions'}
+                        <span className="text-[11px]">{isExpanded ? '▲' : '▼'}</span>
+                      </button>
+
+                      {/* Callback Prompt */}
+                      <a
+                        href="#request-call"
+                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-950 hover:bg-indigo-600 text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer shadow-sm hover:scale-102 active:scale-98"
+                      >
+                        <PhoneCall className="h-3 w-3" />
+                        <span>Claim Offer</span>
+                      </a>
+                    </div>
+
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        );
+      }
+
+      case 'contact': {
+        const hasEmail = isUnlocked && unlockedContacts?.email;
+        const hasPhone = isUnlocked && unlockedContacts?.phone;
+        const hasWhatsapp = isUnlocked && unlockedContacts?.whatsapp;
+        const hasAnyContact = hasEmail || hasPhone || hasWhatsapp;
+        const showBlurred = !isUnlocked;
+
         return (
           <section key="contact" id="contact" className="space-y-6">
             <div className="space-y-1">
@@ -1111,87 +1332,317 @@ export default function PortfolioView({
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Instantly connect with {profile.fullName} via email, phone call, or WhatsApp chat</p>
             </div>
 
-            {!isLoggedIn ? (
-              <div className={`${theme.cardBg} ${theme.cardBorder} ${theme.cardRadius} p-8 text-center space-y-4 shadow-xl border relative overflow-hidden flex flex-col items-center justify-center max-w-2xl mx-auto`}>
-                <div className="absolute inset-0 bg-gradient-to-tr from-slate-950/5 via-transparent to-indigo-500/5 pointer-events-none" />
-                <div className="h-14 w-14 bg-amber-500/10 text-amber-600 rounded-full flex items-center justify-center mx-auto border border-amber-500/20 shadow-inner">
-                  <Lock className="h-6 w-6 text-amber-500" />
+            {checkingUnlock ? (
+              <div className="text-center py-12 bg-black/5 rounded-xl text-xs font-bold text-slate-500 animate-pulse">
+                Verifying secure contact lock...
+              </div>
+            ) : showBlurred ? (
+              // Locked / Blurred State
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative">
+                  {/* Email Card (Blurred) */}
+                  <div className={`${theme.cardBg} ${theme.cardBorder} ${theme.cardRadius} p-5 flex flex-col justify-between items-start gap-4 shadow-sm border relative overflow-hidden group`}>
+                    <div className="flex items-center gap-3">
+                      <div className="p-3 bg-rose-500/10 text-rose-500 rounded-xl">
+                        <Mail className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-1">
+                          Official Email <Lock className="h-3 w-3 text-rose-450" />
+                        </h4>
+                        <p className="text-xs font-bold break-all select-none blur-[4.5px] opacity-40">
+                          {profile.email || `${profile.username}@talantahub.com`}
+                        </p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        if (!isLoggedIn) {
+                          alert('Please sign in or join as a creative to unlock contacts!');
+                          return;
+                        }
+                        if (activeRole === 'visitor' || activeRole === 'client') {
+                          alert('Please select a Freelancer persona on the top bar to unlock contacts!');
+                          return;
+                        }
+                        setPesapalEmail(profile.email || '');
+                        setPaymentError(null);
+                        setPaymentSuccess(false);
+                        setMpesaPin('');
+                        setShowPesapalModal(true);
+                      }}
+                      className="w-full text-center py-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 rounded-xl text-xs font-black uppercase tracking-wider transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      <Lock className="h-3.5 w-3.5" />
+                      <span>Unlock to Reveal</span>
+                    </button>
+                  </div>
+
+                  {/* Phone Card (Blurred) */}
+                  <div className={`${theme.cardBg} ${theme.cardBorder} ${theme.cardRadius} p-5 flex flex-col justify-between items-start gap-4 shadow-sm border relative overflow-hidden group`}>
+                    <div className="flex items-center gap-3">
+                      <div className="p-3 bg-indigo-500/10 text-indigo-500 rounded-xl">
+                        <Phone className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-1">
+                          Call Number <Lock className="h-3 w-3 text-indigo-450" />
+                        </h4>
+                        <p className="text-xs font-bold break-all select-none blur-[4.5px] opacity-40">
+                          {profile.phone || '+254 712 345678'}
+                        </p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        if (!isLoggedIn) {
+                          alert('Please sign in or join as a creative to unlock contacts!');
+                          return;
+                        }
+                        if (activeRole === 'visitor' || activeRole === 'client') {
+                          alert('Please select a Freelancer persona on the top bar to unlock contacts!');
+                          return;
+                        }
+                        setPesapalEmail(profile.email || '');
+                        setPaymentError(null);
+                        setPaymentSuccess(false);
+                        setMpesaPin('');
+                        setShowPesapalModal(true);
+                      }}
+                      className="w-full text-center py-2.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 rounded-xl text-xs font-black uppercase tracking-wider transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      <Lock className="h-3.5 w-3.5" />
+                      <span>Unlock to Reveal</span>
+                    </button>
+                  </div>
+
+                  {/* WhatsApp Card (Blurred) */}
+                  <div className={`${theme.cardBg} ${theme.cardBorder} ${theme.cardRadius} p-5 flex flex-col justify-between items-start gap-4 shadow-sm border relative overflow-hidden group`}>
+                    <div className="flex items-center gap-3">
+                      <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl">
+                        <MessageSquare className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-1">
+                          WhatsApp Link <Lock className="h-3 w-3 text-emerald-450" />
+                        </h4>
+                        <p className="text-xs font-bold break-all select-none blur-[4.5px] opacity-40">
+                          {profile.whatsapp || '+254 712 345678'}
+                        </p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        if (!isLoggedIn) {
+                          alert('Please sign in or join as a creative to unlock contacts!');
+                          return;
+                        }
+                        if (activeRole === 'visitor' || activeRole === 'client') {
+                          alert('Please select a Freelancer persona on the top bar to unlock contacts!');
+                          return;
+                        }
+                        setPesapalEmail(profile.email || '');
+                        setPaymentError(null);
+                        setPaymentSuccess(false);
+                        setMpesaPin('');
+                        setShowPesapalModal(true);
+                      }}
+                      className="w-full text-center py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 rounded-xl text-xs font-black uppercase tracking-wider transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      <Lock className="h-3.5 w-3.5" />
+                      <span>Unlock to Reveal</span>
+                    </button>
+                  </div>
                 </div>
-                <div className="space-y-2 max-w-md">
-                  <h3 className="text-base font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">Contact Details Locked</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-bold leading-relaxed">
-                    To maintain community safety, official contact details (email, phone, and direct WhatsApp links) are locked. Please sign in or join as a creative to instantly see and contact Kenya's top creators!
+
+                {/* Secure Callout Banner below the blurred cards */}
+                {!isLoggedIn ? (
+                  <div className={`${theme.cardBg} ${theme.cardBorder} ${theme.cardRadius} p-6 text-center space-y-4 shadow-xl border relative overflow-hidden flex flex-col items-center justify-center max-w-2xl mx-auto`}>
+                    <div className="absolute inset-0 bg-gradient-to-tr from-slate-950/5 via-transparent to-indigo-500/5 pointer-events-none" />
+                    <div className="space-y-1">
+                      <h3 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">Contact Information Locked</h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 font-bold max-w-md mx-auto">
+                        Please sign in or join as a creative to see and securely unlock {profile.fullName}'s official phone, email and direct WhatsApp connections.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className={`${theme.cardBg} ${theme.cardBorder} ${theme.cardRadius} p-6 text-center space-y-4 shadow-xl border relative overflow-hidden flex flex-col items-center justify-center max-w-2xl mx-auto`}>
+                    <div className="absolute inset-0 bg-gradient-to-tr from-slate-950/5 via-transparent to-indigo-500/5 pointer-events-none" />
+                    <div className="space-y-1">
+                      <h3 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">Unlock verified direct lines</h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 font-bold max-w-md mx-auto">
+                        To connect directly with {profile.fullName}, click below to securely unlock their official contact details (including phone, WhatsApp and email) for KSh 50.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (activeRole === 'visitor' || activeRole === 'client') {
+                          alert('Please select a Freelancer persona on the top bar to unlock contacts!');
+                          return;
+                        }
+                        setPesapalEmail(profile.email || '');
+                        setPaymentError(null);
+                        setPaymentSuccess(false);
+                        setMpesaPin('');
+                        setShowPesapalModal(true);
+                      }}
+                      className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-2 cursor-pointer"
+                    >
+                      <Unlock className="h-4 w-4" />
+                      <span>Unlock Contacts (KSh 50)</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : !hasAnyContact ? (
+              <div className={`${theme.cardBg} ${theme.cardBorder} ${theme.cardRadius} p-8 text-center space-y-4 shadow-xl border relative overflow-hidden flex flex-col items-center justify-center max-w-2xl mx-auto`}>
+                <div className="h-14 w-14 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-full flex items-center justify-center mx-auto">
+                  <AlertCircle className="h-6 w-6" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-base font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">No Contacts Available</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-bold">
+                    Contact information not provided.
                   </p>
+                  {isOwner && (
+                    <p className="text-xs text-indigo-600 font-extrabold mt-2">
+                      Complete your profile to add your contact information.
+                    </p>
+                  )}
                 </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Email Card */}
-                <div className={`${theme.cardBg} ${theme.cardBorder} ${theme.cardRadius} p-5 flex flex-col justify-between items-start gap-4 shadow-sm border`}>
-                  <div className="flex items-center gap-3">
-                    <div className="p-3 bg-rose-500/10 text-rose-500 rounded-xl">
-                      <Mail className="h-5 w-5" />
+                {unlockedContacts?.email && (
+                  <div className={`${theme.cardBg} ${theme.cardBorder} ${theme.cardRadius} p-5 flex flex-col justify-between items-start gap-4 shadow-sm border`}>
+                    <div className="flex items-center gap-3">
+                      <div className="p-3 bg-rose-500/10 text-rose-500 rounded-xl">
+                        <Mail className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Official Email</h4>
+                        <p className="text-xs font-bold break-all select-all">{unlockedContacts.email}</p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Official Email</h4>
-                      <p className="text-xs font-bold break-all select-all">{profile.email || `${profile.username}@talantahub.com`}</p>
-                    </div>
+                    <a 
+                      href={`mailto:${unlockedContacts.email}`}
+                      className="w-full text-center py-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 rounded-xl text-xs font-black uppercase tracking-wider transition-colors"
+                    >
+                      Send Email
+                    </a>
                   </div>
-                  <a 
-                    href={`mailto:${profile.email || `${profile.username}@talantahub.com`}`}
-                    className="w-full text-center py-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 rounded-xl text-xs font-black uppercase tracking-wider transition-colors"
-                  >
-                    Send Email
-                  </a>
-                </div>
+                )}
 
                 {/* Phone Card */}
-                <div className={`${theme.cardBg} ${theme.cardBorder} ${theme.cardRadius} p-5 flex flex-col justify-between items-start gap-4 shadow-sm border`}>
-                  <div className="flex items-center gap-3">
-                    <div className="p-3 bg-indigo-500/10 text-indigo-500 rounded-xl">
-                      <Phone className="h-5 w-5" />
+                {unlockedContacts?.phone && (
+                  <div className={`${theme.cardBg} ${theme.cardBorder} ${theme.cardRadius} p-5 flex flex-col justify-between items-start gap-4 shadow-sm border`}>
+                    <div className="flex items-center gap-3">
+                      <div className="p-3 bg-indigo-500/10 text-indigo-500 rounded-xl">
+                        <Phone className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Call Number</h4>
+                        <p className="text-xs font-bold break-all select-all">{unlockedContacts.phone}</p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Call Number</h4>
-                      <p className="text-xs font-bold break-all select-all">{profile.phone || '+254 700 000 000'}</p>
-                    </div>
+                    <a 
+                      href={`tel:${unlockedContacts.phone.replace(/\s+/g, '')}`}
+                      className="w-full text-center py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-colors"
+                    >
+                      Call Now
+                    </a>
                   </div>
-                  <a 
-                    href={`tel:${(profile.phone || '+254700000000').replace(/\s+/g, '')}`}
-                    className="w-full text-center py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-colors"
-                  >
-                    Call Now
-                  </a>
-                </div>
+                )}
 
                 {/* WhatsApp Card */}
-                <div className={`${theme.cardBg} ${theme.cardBorder} ${theme.cardRadius} p-5 flex flex-col justify-between items-start gap-4 shadow-sm border`}>
-                  <div className="flex items-center gap-3">
-                    <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl">
-                      <MessageSquare className="h-5 w-5" />
+                {unlockedContacts?.whatsapp && (
+                  <div className={`${theme.cardBg} ${theme.cardBorder} ${theme.cardRadius} p-5 flex flex-col justify-between items-start gap-4 shadow-sm border`}>
+                    <div className="flex items-center gap-3">
+                      <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl">
+                        <MessageSquare className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider">WhatsApp Link</h4>
+                        <p className="text-xs font-bold break-all select-all">{unlockedContacts.whatsapp}</p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider">WhatsApp Link</h4>
-                      <p className="text-xs font-bold break-all select-all">{profile.whatsapp || '+254 700 000 000'}</p>
-                    </div>
+                    <a 
+                      href={`https://wa.me/${unlockedContacts.whatsapp.replace(/[^0-9]/g, '')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full text-center py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-colors flex items-center justify-center gap-1"
+                    >
+                      <span>WhatsApp Chat</span>
+                    </a>
                   </div>
-                  <a 
-                    href={`https://wa.me/${(profile.whatsapp || '+254700000000').replace(/[^0-9]/g, '')}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full text-center py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-colors flex items-center justify-center gap-1"
-                  >
-                    <span>WhatsApp Chat</span>
-                  </a>
-                </div>
+                )}
               </div>
             )}
           </section>
         );
+      }
 
       default:
         return null;
     }
+  };
+
+  const handlePesapalPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeRole) {
+      setPaymentError("You must be logged in to make a payment.");
+      return;
+    }
+    
+    if (pesapalMethod === 'mpesa') {
+      if (!pesapalPhone.trim()) {
+        setPaymentError("Please enter your M-Pesa mobile number.");
+        return;
+      }
+      if (!mpesaPin.trim() || mpesaPin.length < 4) {
+        setPaymentError("Please enter a valid 4-digit M-Pesa PIN simulation.");
+        return;
+      }
+    } else {
+      if (!pesapalEmail.trim()) {
+        setPaymentError("Please enter your email address.");
+        return;
+      }
+    }
+
+    setPaying(true);
+    setPaymentError(null);
+
+    // Simulated Pesapal transaction latency
+    setTimeout(async () => {
+      try {
+        const res = await createContactUnlock({
+          buyerId: activeRole,
+          creativeId: profile.id,
+          amount: 50,
+          paymentStatus: 'completed'
+        });
+
+        if (res.success) {
+          setPaymentSuccess(true);
+          setIsUnlocked(true);
+          const details = await fetchUnlockedContactDetails(activeRole, profile.id);
+          setUnlockedContacts(details);
+          setTimeout(() => {
+            setShowPesapalModal(false);
+            setPaymentSuccess(false);
+          }, 2000);
+        } else {
+          setPaymentError(res.error || "Payment processing failed in Supabase.");
+        }
+      } catch (err: any) {
+        setPaymentError(err.message || "An unexpected error occurred.");
+      } finally {
+        setPaying(false);
+      }
+    }, 1500);
   };
 
   return (
@@ -1288,63 +1739,70 @@ export default function PortfolioView({
 
       {/* Main website layouts context */}
       <div className="max-w-5xl mx-auto px-4 mt-16 space-y-12 pt-4">
-        {profile.layoutOrder.map((sectionId) => {
-          // If the section is 'categories', check if 'gallery' is also present in layoutOrder.
-          // If 'gallery' is present, we render them together in a 2-column grid layout!
-          if (sectionId === 'categories') {
-            const hasGallery = profile.layoutOrder.includes('gallery');
-            if (hasGallery) {
-              return (
-                <React.Fragment key="feed-and-projects-with-clients">
-                  <div 
-                    key="feed-and-projects" 
-                    className="p-6 md:p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-md relative overflow-hidden transition-all duration-300"
-                    style={{ backgroundColor: '#ffffff' }}
-                  >
-                    {/* Subtle ambient light reflections to enrich layout depth */}
-                    <div className="absolute -right-20 -top-20 w-52 h-52 bg-white/20 rounded-full blur-2xl pointer-events-none" />
-                    <div className="absolute -left-20 -bottom-20 w-52 h-52 bg-black/5 rounded-full blur-2xl pointer-events-none" />
+        {(() => {
+          const layoutSections = profile.layoutOrder.includes('offers')
+            ? profile.layoutOrder
+            : (profile.offers && profile.offers.filter(o => o.isActive !== false).length > 0
+                ? [...profile.layoutOrder, 'offers']
+                : profile.layoutOrder);
+          return layoutSections.map((sectionId) => {
+            // If the section is 'categories', check if 'gallery' is also present in layoutOrder.
+            // If 'gallery' is present, we render them together in a 2-column grid layout!
+            if (sectionId === 'categories') {
+              const hasGallery = profile.layoutOrder.includes('gallery');
+              if (hasGallery) {
+                return (
+                  <React.Fragment key="feed-and-projects-with-clients">
+                    <div 
+                      key="feed-and-projects" 
+                      className="p-6 md:p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-md relative overflow-hidden transition-all duration-300"
+                      style={{ backgroundColor: '#ffffff' }}
+                    >
+                      {/* Subtle ambient light reflections to enrich layout depth */}
+                      <div className="absolute -right-20 -top-20 w-52 h-52 bg-white/20 rounded-full blur-2xl pointer-events-none" />
+                      <div className="absolute -left-20 -bottom-20 w-52 h-52 bg-black/5 rounded-full blur-2xl pointer-events-none" />
 
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start relative z-10">
-                      {/* Left Column: Creative Feed (smaller column) */}
-                      <div className="lg:col-span-5 space-y-6">
-                        {renderSection('categories', true)}
-                      </div>
-                      {/* Right Column: Featured Projects */}
-                      <div className="lg:col-span-7 space-y-6">
-                        {renderSection('gallery')}
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start relative z-10">
+                        {/* Left Column: Creative Feed (smaller column) */}
+                        <div className="lg:col-span-5 space-y-6">
+                          {renderSection('categories', true)}
+                        </div>
+                        {/* Right Column: Featured Projects */}
+                        <div className="lg:col-span-7 space-y-6">
+                          {renderSection('gallery')}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <NotableClients 
-                    profile={profile} 
-                    isOwner={isOwner} 
-                    onUpdateProfile={onUpdateProfile} 
-                  />
+                    <NotableClients 
+                      profile={profile} 
+                      isOwner={isOwner} 
+                      onUpdateProfile={onUpdateProfile} 
+                    />
 
-                  <RequestCall 
-                    profile={profile} 
-                    isOwner={isOwner} 
-                    onUpdateProfile={onUpdateProfile} 
-                  />
-                </React.Fragment>
-              );
+                    <RequestCall 
+                      profile={profile} 
+                      isOwner={isOwner} 
+                      onUpdateProfile={onUpdateProfile} 
+                    />
+                  </React.Fragment>
+                );
+              }
             }
-          }
-          
-          // If the section is 'gallery' and we already rendered it side-by-side with 'categories', skip it.
-          if (sectionId === 'gallery' && profile.layoutOrder.includes('categories')) {
-            return null;
-          }
+            
+            // If the section is 'gallery' and we already rendered it side-by-side with 'categories', skip it.
+            if (sectionId === 'gallery' && profile.layoutOrder.includes('categories')) {
+              return null;
+            }
 
-          // If the section is 'contact' and 'analytics' is present, skip 'contact' to avoid duplication
-          if (sectionId === 'contact' && profile.layoutOrder.includes('analytics')) {
-            return null;
-          }
+            // If the section is 'contact' and 'analytics' is present, skip 'contact' to avoid duplication
+            if (sectionId === 'contact' && profile.layoutOrder.includes('analytics')) {
+              return null;
+            }
 
-          return renderSection(sectionId);
-        })}
+            return renderSection(sectionId);
+          });
+        })()}
       </div>
 
       {/* Dynamic Gallery Lightbox Modal */}
@@ -1761,6 +2219,163 @@ export default function PortfolioView({
         onSave={handleCropperSave}
         onCancel={() => setCropperOpen(false)}
       />
+
+      {/* Pesapal Secure Payment Simulator Modal */}
+      {showPesapalModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border-2 border-indigo-500/30 rounded-3xl max-w-md w-full p-6 text-white space-y-6 shadow-2xl relative">
+            <button 
+              onClick={() => setShowPesapalModal(false)}
+              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white rounded-full bg-slate-800 hover:bg-slate-700 transition-colors cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="text-center space-y-2">
+              <div className="inline-flex p-3 bg-emerald-500/10 text-emerald-400 rounded-full border border-emerald-500/20">
+                <Unlock className="h-6 w-6" />
+              </div>
+              <h3 className="text-lg font-black uppercase tracking-wider text-white">Pesapal Secure Checkout</h3>
+              <p className="text-xs text-slate-400">
+                Unlock official contact information for <strong className="text-white">{profile.fullName}</strong>
+              </p>
+            </div>
+
+            <div className="bg-slate-950/60 p-4 rounded-2xl border border-white/5 flex justify-between items-center">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Due:</span>
+              <span className="text-xl font-black text-emerald-400">KSh 50.00</span>
+            </div>
+
+            {paymentSuccess ? (
+              <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-center space-y-2">
+                <Check className="h-8 w-8 text-emerald-400 mx-auto animate-bounce" />
+                <p className="text-xs font-black uppercase tracking-wider text-emerald-400">Payment Successful!</p>
+                <p className="text-[11px] text-slate-400">Contact details unlocked permanently.</p>
+              </div>
+            ) : (
+              <form onSubmit={handlePesapalPayment} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Select Payment Method</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPesapalMethod('mpesa')}
+                      className={`py-3 rounded-xl text-xs font-black uppercase tracking-wider border transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                        pesapalMethod === 'mpesa'
+                          ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg'
+                          : 'bg-slate-800/50 border-white/5 text-slate-400 hover:bg-slate-800'
+                      }`}
+                    >
+                      <span>M-PESA</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPesapalMethod('card')}
+                      className={`py-3 rounded-xl text-xs font-black uppercase tracking-wider border transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                        pesapalMethod === 'card'
+                          ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg'
+                          : 'bg-slate-800/50 border-white/5 text-slate-400 hover:bg-slate-800'
+                      }`}
+                    >
+                      <span>Credit Card</span>
+                    </button>
+                  </div>
+                </div>
+
+                {pesapalMethod === 'mpesa' ? (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">M-Pesa Mobile Number</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 0712345678"
+                        value={pesapalPhone}
+                        onChange={(e) => setPesapalPhone(e.target.value)}
+                        className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl focus:border-emerald-500 focus:outline-none text-xs text-white"
+                        disabled={paying}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">M-Pesa PIN (Simulation)</label>
+                      <input
+                        type="password"
+                        placeholder="Enter 4-digit PIN"
+                        maxLength={4}
+                        value={mpesaPin}
+                        onChange={(e) => setMpesaPin(e.target.value.replace(/\D/g, ''))}
+                        className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl focus:border-emerald-500 focus:outline-none text-xs text-white text-center tracking-widest font-black"
+                        disabled={paying}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Billing Email Address</label>
+                      <input
+                        type="email"
+                        placeholder="your@email.com"
+                        value={pesapalEmail}
+                        onChange={(e) => setPesapalEmail(e.target.value)}
+                        className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl focus:border-indigo-500 focus:outline-none text-xs text-white"
+                        disabled={paying}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Card Number</label>
+                        <input
+                          type="text"
+                          placeholder="4111 2222 3333 4444"
+                          className="w-full px-3 py-3 bg-slate-950 border border-white/10 rounded-xl focus:outline-none text-xs text-white"
+                          disabled={paying}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Expiry & CVV</label>
+                        <input
+                          type="text"
+                          placeholder="MM/YY 123"
+                          className="w-full px-3 py-3 bg-slate-950 border border-white/10 rounded-xl focus:outline-none text-xs text-white"
+                          disabled={paying}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {paymentError && (
+                  <p className="text-[11px] text-rose-500 font-bold bg-rose-500/10 p-2.5 rounded-xl border border-rose-500/20 text-center">
+                    {paymentError}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={paying}
+                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-800 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {paying ? (
+                    <>
+                      <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Processing KSh 50...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Unlock className="h-4 w-4" />
+                      <span>Pay KSh 50 via Pesapal</span>
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+
+            <p className="text-[10px] text-slate-500 text-center font-bold uppercase tracking-wider">
+              🔒 Encrypted Secure Transaction via Pesapal APIs
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

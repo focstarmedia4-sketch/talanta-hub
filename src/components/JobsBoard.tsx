@@ -4,9 +4,10 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Briefcase, MapPin, DollarSign, Coins, Calendar, Users, PlusCircle, Search, ArrowRight, X, Mail, Phone, MessageSquare, ChevronDown, SlidersHorizontal, ArrowUpDown, AlertCircle, Check, Lock, Unlock } from 'lucide-react';
-import { Job, CreativeCategory, FreelancerProfile } from '../types';
+import { Briefcase, MapPin, DollarSign, Coins, Calendar, Users, PlusCircle, Search, ArrowRight, X, Mail, Phone, MessageSquare, ChevronDown, SlidersHorizontal, ArrowUpDown, AlertCircle, Check, Lock, Unlock, Star } from 'lucide-react';
+import { Job, CreativeCategory, FreelancerProfile, Review } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
+import { checkIfContactUnlocked, createContactUnlock, fetchUnlockedContactDetails } from '../utils/supabaseService';
 
 const formatBudget = (range: string) => {
   if (!range) return 'KSh. 0';
@@ -103,6 +104,106 @@ function CountySelector({
   );
 }
 
+interface JobReviewFormProps {
+  reviewerName: string;
+  reviewerRole: string;
+  reviewedUserId: string;
+  jobId: string;
+  onPostReview: (rating: number, comment: string) => Promise<any>;
+}
+
+function JobReviewForm({
+  reviewerName,
+  reviewerRole,
+  reviewedUserId,
+  jobId,
+  onPostReview
+}: JobReviewFormProps) {
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!comment.trim()) return;
+    setSubmitting(true);
+    setError('');
+    try {
+      const res = await onPostReview(rating, comment);
+      if (res && res.success === false) {
+        setError(res.error || 'Duplicate review detected.');
+      } else {
+        setSuccess(true);
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Failed to submit review.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (success) {
+    return (
+      <div className="p-4 bg-emerald-50 text-emerald-950 border border-emerald-150 rounded-xl text-xs font-bold text-center space-y-1">
+        <span>Review posted successfully!</span>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="p-4 bg-white border border-slate-150 rounded-xl space-y-3.5 text-left">
+      <div className="space-y-1">
+        <h4 className="text-xs font-black text-slate-800 uppercase tracking-wide">Leave a Trusted Review</h4>
+        <p className="text-[10px] text-slate-400 font-semibold leading-relaxed">
+          Your review will be permanently calculated into their rating score.
+        </p>
+      </div>
+
+      <div className="space-y-1">
+        <span className="text-[10px] font-black uppercase text-slate-500 block">Rating Score *</span>
+        <div className="flex gap-1 text-amber-500">
+          {[1, 2, 3, 4, 5].map((star) => (
+            <button
+              type="button"
+              key={star}
+              onClick={() => setRating(star)}
+              className="p-0.5 hover:scale-110 transition-transform cursor-pointer"
+            >
+              <Star className={`h-5 w-5 ${star <= rating ? 'fill-amber-500' : 'text-slate-200'}`} />
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-1">
+        <label className="text-[10px] font-black uppercase text-slate-500 block">Review Comment *</label>
+        <textarea
+          required
+          rows={3}
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          placeholder="Describe your collaboration, communication quality, final deliverables..."
+          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-medium resize-none"
+        />
+      </div>
+
+      {error && (
+        <p className="text-[10px] text-rose-600 font-bold">{error}</p>
+      )}
+
+      <button
+        type="submit"
+        disabled={submitting}
+        className="w-full py-2 bg-indigo-600 hover:bg-indigo-750 text-white text-xs font-black uppercase tracking-wider rounded transition-all cursor-pointer shadow-sm text-center disabled:opacity-50"
+      >
+        {submitting ? 'Submitting...' : 'Post Trusted Review'}
+      </button>
+    </form>
+  );
+}
+
 interface JobsBoardProps {
   jobs: Job[];
   onPostJob: (newJob: Omit<Job, 'id' | 'postedDate' | 'applicantsCount'>) => void;
@@ -113,6 +214,7 @@ interface JobsBoardProps {
   onUpdateFreelancer?: (updated: FreelancerProfile) => void;
   onUpdateJob?: (updatedJob: Job) => void;
   isLoggedIn?: boolean;
+  onAddReview?: (freelancerId: string, review: Omit<Review, 'id' | 'date'>, specificJobId?: string) => any;
 }
 
 export default function JobsBoard({ 
@@ -124,7 +226,8 @@ export default function JobsBoard({
   freelancers = [],
   onUpdateFreelancer,
   onUpdateJob,
-  isLoggedIn = true
+  isLoggedIn = true,
+  onAddReview
 }: JobsBoardProps) {
   // Active Filter States (the ones applied when clicking "Search")
   const [activeCategories, setActiveCategories] = useState<CreativeCategory[]>([]);
@@ -152,6 +255,64 @@ export default function JobsBoard({
 
   const [localToast, setLocalToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
+  // Secure Job Unlocks Tracking States
+  const [unlockedJobIds, setUnlockedJobIds] = useState<string[]>([]);
+  const [unlockedJobContacts, setUnlockedJobContacts] = useState<Record<string, { email?: string; phone?: string; whatsapp?: string }>>({});
+  const [checkingJobUnlocks, setCheckingJobUnlocks] = useState(false);
+
+  // Pesapal Payment States inside JobsBoard
+  const [showPesapalModal, setShowPesapalModal] = useState(false);
+  const [targetJobToUnlock, setTargetJobToUnlock] = useState<Job | null>(null);
+  const [pesapalPhone, setPesapalPhone] = useState('');
+  const [pesapalEmail, setPesapalEmail] = useState('');
+  const [pesapalMethod, setPesapalMethod] = useState<'mpesa' | 'card'>('mpesa');
+  const [mpesaPin, setMpesaPin] = useState('');
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [paying, setPaying] = useState(false);
+
+  useEffect(() => {
+    async function loadUnlockedJobs() {
+      if (!currentRole || currentRole === 'visitor' || currentRole === 'client') {
+        setUnlockedJobIds([]);
+        setUnlockedJobContacts({});
+        return;
+      }
+
+      setCheckingJobUnlocks(true);
+      
+      const unlockedIds: string[] = [];
+      const unlockedContactsMap: Record<string, { email?: string; phone?: string; whatsapp?: string }> = {};
+
+      for (const j of jobs) {
+        if (j.userId === currentRole) {
+          unlockedIds.push(j.id);
+          unlockedContactsMap[j.id] = {
+            email: j.clientEmail || '',
+            phone: j.clientPhone || '',
+            whatsapp: j.clientWhatsapp || ''
+          };
+          continue;
+        }
+
+        const isUnlocked = await checkIfContactUnlocked(currentRole, undefined, j.id);
+        if (isUnlocked) {
+          unlockedIds.push(j.id);
+          const details = await fetchUnlockedContactDetails(currentRole, undefined, j.id);
+          if (details) {
+            unlockedContactsMap[j.id] = details;
+          }
+        }
+      }
+
+      setUnlockedJobIds(unlockedIds);
+      setUnlockedJobContacts(unlockedContactsMap);
+      setCheckingJobUnlocks(false);
+    }
+
+    loadUnlockedJobs();
+  }, [currentRole, jobs]);
+
   const showLocalToast = (message: string, type: 'success' | 'error' = 'success') => {
     setLocalToast({ message, type });
     setTimeout(() => setLocalToast(null), 4000);
@@ -175,7 +336,7 @@ export default function JobsBoard({
     e.stopPropagation();
     
     if (currentRole === 'visitor' || currentRole === 'client') {
-      showLocalToast('Please select a Freelancer persona on the top bar to unlock contacts with credits!', 'error');
+      showLocalToast('Please select a Freelancer persona on the top bar to unlock contacts!', 'error');
       return;
     }
     
@@ -185,11 +346,7 @@ export default function JobsBoard({
       return;
     }
     
-    const unlockPrice = job.unlockPriceKsh || 50;
-    const walletBalance = activeFreelancer.walletBalanceKsh ?? 2500;
-    const unlockedJobIds = activeFreelancer.unlockedJobIds || [];
     const isAlreadyUnlocked = unlockedJobIds.includes(job.id);
-    
     if (isAlreadyUnlocked) {
       return;
     }
@@ -204,37 +361,88 @@ export default function JobsBoard({
       return;
     }
     
-    if (walletBalance < unlockPrice) {
-      showLocalToast(`Insufficient wallet balance. You need KSh ${unlockPrice} to unlock. Please Top Up!`, 'error');
+    // Set target job and open Pesapal simulator modal!
+    setTargetJobToUnlock(job);
+    setPesapalEmail(activeFreelancer.email || '');
+    setPaymentError(null);
+    setPaymentSuccess(false);
+    setMpesaPin('');
+    setShowPesapalModal(true);
+  };
+
+  const handlePesapalPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentRole) {
+      setPaymentError("You must be logged in to make a payment.");
+      return;
+    }
+    if (!targetJobToUnlock) {
+      setPaymentError("No job targeted for unlock.");
       return;
     }
     
-    // Deduct and unlock
-    const updatedFreelancer = {
-      ...activeFreelancer,
-      walletBalanceKsh: walletBalance - unlockPrice,
-      unlockedJobIds: [...unlockedJobIds, job.id]
-    };
-    
-    if (onUpdateFreelancer) {
-      onUpdateFreelancer(updatedFreelancer);
+    if (pesapalMethod === 'mpesa') {
+      if (!pesapalPhone.trim()) {
+        setPaymentError("Please enter your M-Pesa mobile number.");
+        return;
+      }
+      if (!mpesaPin.trim() || mpesaPin.length < 4) {
+        setPaymentError("Please enter a valid 4-digit M-Pesa PIN simulation.");
+        return;
+      }
+    } else {
+      if (!pesapalEmail.trim()) {
+        setPaymentError("Please enter your email address.");
+        return;
+      }
     }
-    
-    const updatedJob = {
-      ...job,
-      unlockCount: (job.unlockCount || 0) + 1
-    };
-    
-    if (onUpdateJob) {
-      onUpdateJob(updatedJob);
-    }
-    
-    // Sync local detailed modal view immediately
-    if (viewingJob && viewingJob.id === job.id) {
-      setViewingJob(updatedJob);
-    }
-    
-    showLocalToast(`Successfully unlocked contacts for "${job.title}"!`, 'success');
+
+    setPaying(true);
+    setPaymentError(null);
+
+    // Simulated Pesapal transaction latency
+    setTimeout(async () => {
+      try {
+        const res = await createContactUnlock({
+          buyerId: currentRole,
+          jobId: targetJobToUnlock.id,
+          amount: targetJobToUnlock.unlockPriceKsh || 50,
+          paymentStatus: 'completed'
+        });
+
+        if (res.success) {
+          setPaymentSuccess(true);
+          
+          // Add to local state
+          const newUnlockedIds = [...unlockedJobIds, targetJobToUnlock.id];
+          setUnlockedJobIds(newUnlockedIds);
+          
+          const details = await fetchUnlockedContactDetails(currentRole, undefined, targetJobToUnlock.id);
+          setUnlockedJobContacts(prev => ({
+            ...prev,
+            [targetJobToUnlock.id]: details || {
+              email: targetJobToUnlock.clientEmail,
+              phone: targetJobToUnlock.clientPhone,
+              whatsapp: targetJobToUnlock.clientWhatsapp
+            }
+          }));
+
+          showLocalToast("Job contact unlocked successfully!", "success");
+
+          setTimeout(() => {
+            setShowPesapalModal(false);
+            setPaymentSuccess(false);
+            setTargetJobToUnlock(null);
+          }, 2000);
+        } else {
+          setPaymentError(res.error || "Payment processing failed in Supabase.");
+        }
+      } catch (err: any) {
+        setPaymentError(err.message || "An unexpected error occurred.");
+      } finally {
+        setPaying(false);
+      }
+    }, 1500);
   };
 
   // Dropdown panel toggle
@@ -1537,6 +1745,205 @@ export default function JobsBoard({
                 );
               })()}
 
+              {/* Hiring & Contract Management Section */}
+              {(() => {
+                const isClient = currentRole === 'client';
+                const hiredCreative = freelancers.find(f => f.id === viewingJob.hiredCreativeId);
+                const isHiredCreative = currentRole === viewingJob.hiredCreativeId;
+
+                // Candidates who unlocked contacts for this job post
+                const candidates = freelancers.filter(f => (f.unlockedJobIds || []).includes(viewingJob.id));
+
+                return (
+                  <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-4 text-left">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600 block">Hiring & Contract Management</span>
+                      {viewingJob.hiredCreativeId ? (
+                        <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${viewingJob.isCompleted ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-blue-100 text-blue-700 border border-blue-200'}`}>
+                          {viewingJob.isCompleted ? '🎉 Completed' : '💼 Active Project'}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                          Vacant
+                        </span>
+                      )}
+                    </div>
+
+                    {!viewingJob.hiredCreativeId ? (
+                      <div className="space-y-3">
+                        {isClient ? (
+                          <>
+                            <h4 className="text-xs font-black uppercase text-slate-700">Interested Candidates ({candidates.length})</h4>
+                            {candidates.length === 0 ? (
+                              <p className="text-[11px] text-slate-400 font-medium leading-relaxed">
+                                No applications/unlocks yet. Interested creatives will appear here as soon as they unlock your contact details.
+                              </p>
+                            ) : (
+                              <div className="space-y-2">
+                                {candidates.map(candidate => (
+                                  <div key={candidate.id} className="flex items-center justify-between gap-2 p-2.5 bg-white rounded-xl border border-slate-150">
+                                    <div className="flex items-center gap-2">
+                                      <img
+                                        src={candidate.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'}
+                                        alt={candidate.fullName}
+                                        className="h-8 w-8 rounded-full object-cover"
+                                        referrerPolicy="no-referrer"
+                                      />
+                                      <div>
+                                        <span className="text-xs font-bold block leading-tight">{candidate.fullName}</span>
+                                        <span className="text-[10px] text-slate-400 block font-semibold">{candidate.title}</span>
+                                      </div>
+                                    </div>
+                                    <button
+                                      onClick={() => {
+                                        const updated = { ...viewingJob, hiredCreativeId: candidate.id, status: 'closed' as const };
+                                        setViewingJob(updated);
+                                        if (onUpdateJob) onUpdateJob(updated);
+                                        showLocalToast(`Successfully hired ${candidate.fullName}! Project is now Active.`, 'success');
+                                      }}
+                                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-750 text-white text-[10px] font-black uppercase tracking-wider rounded-lg transition-all cursor-pointer"
+                                    >
+                                      Hire
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <p className="text-xs text-slate-400 font-semibold italic leading-relaxed">
+                            This project is open for pitches. Unlock client contacts above to apply!
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2.5 p-3 bg-white rounded-xl border border-slate-150">
+                          <img
+                            src={hiredCreative?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'}
+                            alt={hiredCreative?.fullName || 'Hired Creative'}
+                            className="h-10 w-10 rounded-full object-cover shrink-0"
+                            referrerPolicy="no-referrer"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <span className="text-[10px] uppercase font-black tracking-widest text-indigo-600 block">Hired Expert</span>
+                            <span className="text-sm font-black text-slate-900 block truncate">{hiredCreative?.fullName || 'Talented Creative'}</span>
+                            <span className="text-xs font-semibold text-slate-400 block truncate">{hiredCreative?.title || 'Creative Specialist'}</span>
+                          </div>
+                        </div>
+
+                        {!viewingJob.isCompleted ? (
+                          <div className="space-y-2">
+                            {isClient ? (
+                              <button
+                                onClick={() => {
+                                  const updated = { ...viewingJob, isCompleted: true };
+                                  setViewingJob(updated);
+                                  if (onUpdateJob) onUpdateJob(updated);
+                                  showLocalToast(`Project completed successfully! Reviews are now open.`, 'success');
+                                }}
+                                className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer shadow-sm text-center"
+                              >
+                                Mark Project as Completed
+                              </button>
+                            ) : isHiredCreative ? (
+                              <div className="p-3 bg-blue-50 text-blue-950 border border-blue-150 rounded-xl text-xs font-semibold leading-relaxed">
+                                You are hired for this project! Work on deliverables and coordinate with the client. Once finished, the client will mark this project as completed so both of you can leave mutual reviews!
+                              </div>
+                            ) : (
+                              <div className="p-3 bg-slate-50 text-slate-500 border border-slate-150 rounded-xl text-xs font-medium">
+                                This job has already been assigned to another creative.
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="space-y-4 pt-2 border-t border-slate-200">
+                            <div className="p-3 bg-emerald-50 text-emerald-950 border border-emerald-150 rounded-xl text-xs font-bold text-center">
+                              🎉 Project has been successfully completed!
+                            </div>
+
+                            {/* Job reviews inside JobsBoard */}
+                            {(() => {
+                              if (isClient) {
+                                const clientReview = hiredCreative?.reviews?.find(r => r.jobId === viewingJob.id);
+                                if (clientReview) {
+                                  return (
+                                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
+                                      <span className="font-black text-slate-700 block uppercase tracking-wide text-[10px]">Your Posted Review:</span>
+                                      <div className="flex gap-1 text-amber-500 mb-1">
+                                        {Array.from({ length: 5 }).map((_, i) => (
+                                          <Star key={i} className={`h-3 w-3 ${i < clientReview.rating ? 'fill-amber-500 text-amber-500' : 'text-slate-300'}`} />
+                                        ))}
+                                      </div>
+                                      <p className="italic font-medium text-slate-600">"{clientReview.comment}"</p>
+                                    </div>
+                                  );
+                                }
+
+                                return (
+                                  <JobReviewForm
+                                    reviewerName={viewingJob.clientName}
+                                    reviewerRole={viewingJob.clientCompany || 'Client Partner'}
+                                    reviewedUserId={viewingJob.hiredCreativeId!}
+                                    jobId={viewingJob.id}
+                                    onPostReview={async (ratingValue, commentValue) => {
+                                      if (onAddReview) {
+                                        return await onAddReview(viewingJob.hiredCreativeId!, {
+                                          authorName: viewingJob.clientName,
+                                          authorRole: viewingJob.clientCompany || 'Client Partner',
+                                          rating: ratingValue,
+                                          comment: commentValue
+                                        }, viewingJob.id);
+                                      }
+                                    }}
+                                  />
+                                );
+                              } else if (isHiredCreative) {
+                                // For creative reviewing the client
+                                const creativeReview = (hiredCreative?.reviews || []).find(r => r.jobId === viewingJob.id && r.reviewerId === currentRole);
+                                if (creativeReview) {
+                                  return (
+                                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
+                                      <span className="font-black text-slate-700 block uppercase tracking-wide text-[10px]">Your Review for Client:</span>
+                                      <div className="flex gap-1 text-amber-500 mb-1">
+                                        {Array.from({ length: 5 }).map((_, i) => (
+                                          <Star key={i} className={`h-3 w-3 ${i < creativeReview.rating ? 'fill-amber-500 text-amber-500' : 'text-slate-300'}`} />
+                                        ))}
+                                      </div>
+                                      <p className="italic font-medium text-slate-600">"{creativeReview.comment}"</p>
+                                    </div>
+                                  );
+                                }
+
+                                return (
+                                  <JobReviewForm
+                                    reviewerName={hiredCreative?.fullName || 'Hired Creative'}
+                                    reviewerRole={hiredCreative?.title || 'Freelance Specialist'}
+                                    reviewedUserId={viewingJob.userId || 'client'}
+                                    jobId={viewingJob.id}
+                                    onPostReview={async (ratingValue, commentValue) => {
+                                      if (onAddReview) {
+                                        return await onAddReview(viewingJob.userId || 'client', {
+                                          authorName: hiredCreative?.fullName || 'Hired Creative',
+                                          authorRole: hiredCreative?.title || 'Freelance Specialist',
+                                          rating: ratingValue,
+                                          comment: commentValue
+                                        }, viewingJob.id);
+                                      }
+                                    }}
+                                  />
+                                );
+                              }
+                              return null;
+                            })()}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
               {/* Apply action button */}
               <div className="pt-4 flex gap-3">
                 {(() => {
@@ -1808,6 +2215,163 @@ export default function JobsBoard({
           </div>
         )}
       </AnimatePresence>
+
+      {/* Pesapal Secure Payment Simulator Modal */}
+      {showPesapalModal && targetJobToUnlock && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border-2 border-indigo-500/30 rounded-3xl max-w-md w-full p-6 text-white space-y-6 shadow-2xl relative">
+            <button 
+              onClick={() => setShowPesapalModal(false)}
+              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white rounded-full bg-slate-800 hover:bg-slate-700 transition-colors cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="text-center space-y-2">
+              <div className="inline-flex p-3 bg-emerald-500/10 text-emerald-400 rounded-full border border-emerald-500/20">
+                <Unlock className="h-6 w-6" />
+              </div>
+              <h3 className="text-lg font-black uppercase tracking-wider text-white">Pesapal Secure Checkout</h3>
+              <p className="text-xs text-slate-400">
+                Unlock official client contact info for <strong className="text-white">{targetJobToUnlock.title}</strong>
+              </p>
+            </div>
+
+            <div className="bg-slate-950/60 p-4 rounded-2xl border border-white/5 flex justify-between items-center">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Due:</span>
+              <span className="text-xl font-black text-emerald-400">KSh {targetJobToUnlock.unlockPriceKsh || 50}.00</span>
+            </div>
+
+            {paymentSuccess ? (
+              <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-center space-y-2">
+                <Check className="h-8 w-8 text-emerald-400 mx-auto animate-bounce" />
+                <p className="text-xs font-black uppercase tracking-wider text-emerald-400">Payment Successful!</p>
+                <p className="text-[11px] text-slate-400">Client contact details unlocked permanently.</p>
+              </div>
+            ) : (
+              <form onSubmit={handlePesapalPayment} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Select Payment Method</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPesapalMethod('mpesa')}
+                      className={`py-3 rounded-xl text-xs font-black uppercase tracking-wider border transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                        pesapalMethod === 'mpesa'
+                          ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg'
+                          : 'bg-slate-800/50 border-white/5 text-slate-400 hover:bg-slate-800'
+                      }`}
+                    >
+                      <span>M-PESA</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPesapalMethod('card')}
+                      className={`py-3 rounded-xl text-xs font-black uppercase tracking-wider border transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                        pesapalMethod === 'card'
+                          ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg'
+                          : 'bg-slate-800/50 border-white/5 text-slate-400 hover:bg-slate-800'
+                      }`}
+                    >
+                      <span>Credit Card</span>
+                    </button>
+                  </div>
+                </div>
+
+                {pesapalMethod === 'mpesa' ? (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">M-Pesa Mobile Number</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 0712345678"
+                        value={pesapalPhone}
+                        onChange={(e) => setPesapalPhone(e.target.value)}
+                        className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl focus:border-emerald-500 focus:outline-none text-xs text-white"
+                        disabled={paying}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">M-Pesa PIN (Simulation)</label>
+                      <input
+                        type="password"
+                        placeholder="Enter 4-digit PIN"
+                        maxLength={4}
+                        value={mpesaPin}
+                        onChange={(e) => setMpesaPin(e.target.value.replace(/\D/g, ''))}
+                        className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl focus:border-emerald-500 focus:outline-none text-xs text-white text-center tracking-widest font-black"
+                        disabled={paying}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Billing Email Address</label>
+                      <input
+                        type="email"
+                        placeholder="your@email.com"
+                        value={pesapalEmail}
+                        onChange={(e) => setPesapalEmail(e.target.value)}
+                        className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl focus:border-indigo-500 focus:outline-none text-xs text-white"
+                        disabled={paying}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Card Number</label>
+                        <input
+                          type="text"
+                          placeholder="4111 2222 3333 4444"
+                          className="w-full px-3 py-3 bg-slate-950 border border-white/10 rounded-xl focus:outline-none text-xs text-white"
+                          disabled={paying}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Expiry & CVV</label>
+                        <input
+                          type="text"
+                          placeholder="MM/YY 123"
+                          className="w-full px-3 py-3 bg-slate-950 border border-white/10 rounded-xl focus:outline-none text-xs text-white"
+                          disabled={paying}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {paymentError && (
+                  <p className="text-[11px] text-rose-500 font-bold bg-rose-500/10 p-2.5 rounded-xl border border-rose-500/20 text-center">
+                    {paymentError}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={paying}
+                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-800 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {paying ? (
+                    <>
+                      <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Processing KSh {targetJobToUnlock.unlockPriceKsh || 50}...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Unlock className="h-4 w-4" />
+                      <span>Pay KSh {targetJobToUnlock.unlockPriceKsh || 50} via Pesapal</span>
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+
+            <p className="text-[10px] text-slate-500 text-center font-bold uppercase tracking-wider">
+              🔒 Encrypted Secure Transaction via Pesapal APIs
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

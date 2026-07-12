@@ -9,7 +9,8 @@ import {
   TrendingUp, Eye, MessageSquare, Award, CheckCircle, 
   ArrowUp, ArrowDown, BellRing, Trash, HelpCircle, Activity,
   Pen, Video, X, ChevronDown, ChevronUp, EyeOff, Globe, Lock, Unlock,
-  UploadCloud, AlertCircle, Trash2, Edit2, Check, SlidersHorizontal, Filter
+  UploadCloud, AlertCircle, Trash2, Edit2, Check, SlidersHorizontal, Filter,
+  Phone, PhoneCall, Calendar, Clock, Tag, Percent, Megaphone
 } from 'lucide-react';
 import { FreelancerProfile, CreativeCategory, ProfileTheme, PortfolioItem, CategorySection } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -28,7 +29,7 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ profile, onUpdateProfile, onDeleteProfile, allJobs, onViewJob, onUpdateJob }: DashboardProps) {
-  const [activeTab, setActiveTab] = useState<'branding' | 'portfolio' | 'timeline' | 'notifications' | 'password'>('branding');
+  const [activeTab, setActiveTab] = useState<'branding' | 'portfolio' | 'timeline' | 'offers' | 'notifications' | 'password'>('branding');
   
   // Change Password Form State
   const [currentPassword, setCurrentPassword] = useState('');
@@ -742,6 +743,137 @@ export default function Dashboard({ profile, onUpdateProfile, onDeleteProfile, a
   const [catTitle, setCatTitle] = useState('');
   const [catThumbnail, setCatThumbnail] = useState('');
   const [catDesc, setCatDesc] = useState('');
+
+  // Special Offers State
+  const [offerTitle, setOfferTitle] = useState('');
+  const [offerPrice, setOfferPrice] = useState('');
+  const [offerStartDate, setOfferStartDate] = useState('');
+  const [offerEndDate, setOfferEndDate] = useState('');
+  const [offerDetails, setOfferDetails] = useState('');
+  const [offerFormTab, setOfferFormTab] = useState<'basic' | 'details'>('basic');
+  const [editingOfferId, setEditingOfferId] = useState<string | null>(null);
+  const [offerError, setOfferError] = useState<string | null>(null);
+  const [offerSuccess, setOfferSuccess] = useState<string | null>(null);
+
+  const handleAddOffer = (e: React.FormEvent) => {
+    e.preventDefault();
+    setOfferError(null);
+    setOfferSuccess(null);
+
+    if (!offerTitle.trim()) {
+      setOfferError('Offer title is required');
+      return;
+    }
+    if (!offerPrice.trim()) {
+      setOfferError('Offer price or discount amount is required');
+      return;
+    }
+    if (!offerStartDate) {
+      setOfferError('Start date is required');
+      return;
+    }
+    if (!offerEndDate) {
+      setOfferError('End date is required');
+      return;
+    }
+    if (!offerDetails.trim()) {
+      setOfferError('Please fill out the More Details section with inclusion/terms details');
+      return;
+    }
+
+    const currentOffers = profile.offers || [];
+
+    if (editingOfferId) {
+      // Edit existing offer
+      const updated = currentOffers.map(o => {
+        if (o.id === editingOfferId) {
+          return {
+            ...o,
+            title: offerTitle.trim(),
+            price: offerPrice.trim(),
+            startDate: offerStartDate,
+            endDate: offerEndDate,
+            details: offerDetails.trim()
+          };
+        }
+        return o;
+      });
+      saveProfileDraft({
+        ...profile,
+        offers: updated
+      });
+      setOfferSuccess('Offer updated successfully!');
+      setEditingOfferId(null);
+    } else {
+      // Create new offer
+      const newOffer = {
+        id: `offer_${Date.now()}`,
+        title: offerTitle.trim(),
+        price: offerPrice.trim(),
+        startDate: offerStartDate,
+        endDate: offerEndDate,
+        details: offerDetails.trim(),
+        isActive: true
+      };
+      saveProfileDraft({
+        ...profile,
+        offers: [newOffer, ...currentOffers]
+      });
+      setOfferSuccess('New offer created successfully!');
+    }
+
+    // Reset Form
+    setOfferTitle('');
+    setOfferPrice('');
+    setOfferStartDate('');
+    setOfferEndDate('');
+    setOfferDetails('');
+    setOfferFormTab('basic');
+  };
+
+  const handleDeleteOffer = (id: string) => {
+    const currentOffers = profile.offers || [];
+    const updated = currentOffers.filter(o => o.id !== id);
+    saveProfileDraft({
+      ...profile,
+      offers: updated
+    });
+    setOfferSuccess('Offer deleted successfully!');
+    if (editingOfferId === id) {
+      setEditingOfferId(null);
+      setOfferTitle('');
+      setOfferPrice('');
+      setOfferStartDate('');
+      setOfferEndDate('');
+      setOfferDetails('');
+    }
+  };
+
+  const handleStartEditOffer = (offer: any) => {
+    setEditingOfferId(offer.id);
+    setOfferTitle(offer.title);
+    setOfferPrice(offer.price);
+    setOfferStartDate(offer.startDate);
+    setOfferEndDate(offer.endDate);
+    setOfferDetails(offer.details);
+    setOfferFormTab('basic');
+    setOfferError(null);
+    setOfferSuccess(null);
+  };
+
+  const handleToggleOfferActive = (id: string) => {
+    const currentOffers = profile.offers || [];
+    const updated = currentOffers.map(o => {
+      if (o.id === id) {
+        return { ...o, isActive: o.isActive === false ? true : false };
+      }
+      return o;
+    });
+    saveProfileDraft({
+      ...profile,
+      offers: updated
+    });
+  };
 
   // Live analytics ticker state
   const [liveImpressions, setLiveImpressions] = useState<string[]>([]);
@@ -1909,13 +2041,14 @@ export default function Dashboard({ profile, onUpdateProfile, onDeleteProfile, a
         )}
       </div>
 
-      {/* Dashboard Sub-navigation - Center aligned below profile info */}
-      <div className="flex flex-wrap gap-1 bg-slate-100 p-1 rounded-2xl max-w-2xl mx-auto justify-center">
+      {/* Dashboard Sub-navigation - Spanned across the screen looking like the top navigation bar */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 bg-[#87cefa] border border-[#72bbf0] p-1.5 rounded-2xl max-w-5xl w-full mx-auto shadow-sm">
         {[
-          { id: 'branding', label: 'upload, manage and manage your albums', icon: Palette },
-          { id: 'portfolio', label: 'Notable Clients & Brands', icon: ImageIcon },
-          { id: 'timeline', label: 'My Timeline Posts', icon: Activity },
-          { id: 'notifications', label: 'Subscriptions', icon: BellRing },
+          { id: 'branding', label: 'Albums & Branding', icon: Palette },
+          { id: 'portfolio', label: 'Clients & Brands', icon: ImageIcon },
+          { id: 'timeline', label: 'Timeline Posts', icon: Activity },
+          { id: 'offers', label: 'Offers & Promos', icon: Tag },
+          { id: 'notifications', label: 'Bookings & Alerts', icon: BellRing },
           { id: 'password', label: 'Change Password', icon: Lock }
         ].map(tab => {
           const Icon = tab.icon;
@@ -1924,14 +2057,16 @@ export default function Dashboard({ profile, onUpdateProfile, onDeleteProfile, a
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 px-2 py-3 rounded-xl text-[9px] sm:text-[10px] md:text-xs font-bold uppercase tracking-wider transition-all cursor-pointer border text-center ${
                 isActive 
-                  ? 'bg-white text-slate-900 shadow-xs' 
-                  : 'text-slate-500 hover:text-slate-950'
+                  ? 'bg-indigo-950 text-white border-indigo-950 shadow-sm' 
+                  : 'bg-white/65 hover:bg-white text-indigo-950 hover:text-indigo-950 border-indigo-900/5'
               }`}
             >
-              <Icon className="h-4 w-4" />
-              <span>{tab.label}</span>
+              <Icon className="h-4 w-4 shrink-0" />
+              <span className="whitespace-normal text-center leading-tight break-words max-w-full">
+                {tab.label}
+              </span>
             </button>
           );
         })}
@@ -3043,6 +3178,274 @@ export default function Dashboard({ profile, onUpdateProfile, onDeleteProfile, a
             </motion.div>
           )}
 
+          {/* SPECIAL OFFERS MANAGER */}
+          {activeTab === 'offers' && (
+            <motion.div
+              key="offers"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-8 text-left"
+            >
+              <div className="space-y-1">
+                <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
+                  <Tag className="h-5 w-5 text-indigo-600" />
+                  <span>Special Promotional Offers & Deals</span>
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Create and manage tailored deals to attract clients visiting your profile (e.g., 50% discount offers, seasonal packages, or flat rate consultations).
+                </p>
+              </div>
+
+              {/* Grid: Create/Edit Form (Left) & Existing Offers List (Right) */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                
+                {/* Creation Form Column */}
+                <div className="lg:col-span-5 bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-4">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                    <h3 className="text-xs font-black uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                      <Megaphone className="h-4 w-4 text-indigo-500" />
+                      <span>{editingOfferId ? 'Edit Promo Offer' : 'Create New Offer'}</span>
+                    </h3>
+                    <span className="text-[10px] font-black uppercase text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                      Draft Mode
+                    </span>
+                  </div>
+
+                  {offerError && (
+                    <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-600 text-xs rounded-xl flex items-center gap-2 font-bold animate-pulse">
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                      <span>{offerError}</span>
+                    </div>
+                  )}
+
+                  {offerSuccess && (
+                    <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-xs rounded-xl flex items-center gap-2 font-bold">
+                      <CheckCircle className="h-4 w-4 shrink-0" />
+                      <span>{offerSuccess}</span>
+                    </div>
+                  )}
+
+                  {/* Form Tabs: Basic Info & More Details */}
+                  <div className="flex bg-slate-200/60 p-1 rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => setOfferFormTab('basic')}
+                      className={`flex-1 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
+                        offerFormTab === 'basic'
+                          ? 'bg-white text-slate-900 shadow-sm'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      Step 1: Basic Info
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setOfferFormTab('details')}
+                      className={`flex-1 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
+                        offerFormTab === 'details'
+                          ? 'bg-white text-slate-900 shadow-sm'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      Step 2: More Details
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleAddOffer} className="space-y-4">
+                    {offerFormTab === 'basic' ? (
+                      <div className="space-y-4 animate-in fade-in duration-200">
+                        {/* Title */}
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black uppercase text-slate-500 block">Offer Title *</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. 50% Off Professional Cake Baking"
+                            value={offerTitle}
+                            onChange={(e) => setOfferTitle(e.target.value)}
+                            className="w-full text-xs px-3.5 py-2.5 bg-white border border-slate-200 focus:border-indigo-500 rounded-xl outline-none font-semibold transition-all shadow-sm text-slate-950"
+                          />
+                        </div>
+
+                        {/* Price / Discount */}
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black uppercase text-slate-500 block">Promo Value / Discount / Price *</label>
+                          <div className="relative">
+                            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">🏷️</span>
+                            <input
+                              type="text"
+                              placeholder="e.g. 50% Off, or KSh 12,500 flat"
+                              value={offerPrice}
+                              onChange={(e) => setOfferPrice(e.target.value)}
+                              className="w-full text-xs pl-9 pr-3.5 py-2.5 bg-white border border-slate-200 focus:border-indigo-500 rounded-xl outline-none font-semibold transition-all shadow-sm text-slate-950"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Dates Row */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black uppercase text-slate-500 block">Start Date *</label>
+                            <input
+                              type="date"
+                              value={offerStartDate}
+                              onChange={(e) => setOfferStartDate(e.target.value)}
+                              className="w-full text-xs px-3 py-2.5 bg-white border border-slate-200 focus:border-indigo-500 rounded-xl outline-none font-semibold transition-all shadow-sm text-slate-950"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black uppercase text-slate-500 block">End Date *</label>
+                            <input
+                              type="date"
+                              value={offerEndDate}
+                              onChange={(e) => setOfferEndDate(e.target.value)}
+                              className="w-full text-xs px-3 py-2.5 bg-white border border-slate-200 focus:border-indigo-500 rounded-xl outline-none font-semibold transition-all shadow-sm text-slate-950"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setOfferFormTab('details')}
+                            className="w-full py-2.5 bg-slate-900 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all hover:bg-slate-800 cursor-pointer"
+                          >
+                            Next: Type More Details →
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-4 animate-in fade-in duration-200">
+                        {/* More Details Tab */}
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black uppercase text-slate-500 block">Full Offer Inclusions & Details *</label>
+                          <textarea
+                            rows={6}
+                            placeholder="Type comprehensive details here... (e.g. What is included, size, flavor options, free delivery, terms & conditions, etc.)"
+                            value={offerDetails}
+                            onChange={(e) => setOfferDetails(e.target.value)}
+                            className="w-full text-xs px-3.5 py-2.5 bg-white border border-slate-200 focus:border-indigo-500 rounded-xl outline-none font-semibold transition-all shadow-sm text-slate-950 resize-none"
+                          />
+                        </div>
+
+                        <div className="flex gap-2 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setOfferFormTab('basic')}
+                            className="flex-1 py-2.5 bg-white text-slate-700 border border-slate-250 text-xs font-black uppercase tracking-wider rounded-xl transition-all hover:bg-slate-50 cursor-pointer"
+                          >
+                            ← Back to Basic
+                          </button>
+                          <button
+                            type="submit"
+                            className="flex-1 py-2.5 bg-indigo-600 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all hover:bg-indigo-700 shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+                          >
+                            <Check className="h-4 w-4" />
+                            <span>{editingOfferId ? 'Update Offer' : 'Publish Offer'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </form>
+                </div>
+
+                {/* List Column */}
+                <div className="lg:col-span-7 space-y-4">
+                  <h3 className="text-sm font-black uppercase tracking-wider text-slate-500">
+                    Live Active Offers ({ (profile.offers || []).length })
+                  </h3>
+
+                  { (!profile.offers || profile.offers.length === 0) ? (
+                    <div className="text-center py-12 bg-slate-50 dark:bg-slate-900/40 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800">
+                      <Tag className="h-8 w-8 text-slate-400 mx-auto mb-2 animate-bounce" />
+                      <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">No offers created yet</p>
+                      <p className="text-[10px] text-slate-500 mt-1 max-w-xs mx-auto">
+                        Fill out the form on the left to publish your first special promotional discount deal. It will show up immediately on your profile!
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                      {profile.offers.map((offer) => (
+                        <div
+                          key={offer.id}
+                          className={`p-4 rounded-xl border transition-all ${
+                            offer.isActive === false
+                              ? 'bg-slate-50 border-slate-200 opacity-60'
+                              : 'bg-white border-slate-200 hover:border-slate-350 shadow-xs'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="space-y-1.5 flex-grow">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="inline-flex items-center gap-0.5 text-[9px] font-black uppercase bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded border border-indigo-100">
+                                  {offer.price}
+                                </span>
+                                <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded ${
+                                  offer.isActive !== false
+                                    ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                                    : 'bg-slate-200 text-slate-500 border border-slate-300'
+                                }`}>
+                                  {offer.isActive !== false ? 'Live' : 'Paused'}
+                                </span>
+                              </div>
+
+                              <h4 className="text-sm font-extrabold text-slate-950 leading-tight">
+                                {offer.title}
+                              </h4>
+
+                              <div className="flex flex-wrap items-center gap-3 text-[10px] font-bold text-slate-500">
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="h-3 w-3 text-slate-400" />
+                                  <span>{offer.startDate} to {offer.endDate}</span>
+                                </span>
+                              </div>
+
+                              <p className="text-xs text-slate-600 dark:text-slate-400 bg-slate-50 p-2.5 rounded-lg border border-slate-100 mt-1 italic line-clamp-3">
+                                "{offer.details}"
+                              </p>
+                            </div>
+
+                            {/* Actions buttons */}
+                            <div className="flex flex-col gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleOfferActive(offer.id)}
+                                className={`text-[10px] font-black uppercase px-2 py-1 rounded-lg border transition-colors cursor-pointer text-center ${
+                                  offer.isActive !== false
+                                    ? 'bg-slate-100 text-slate-700 border-slate-250 hover:bg-slate-200'
+                                    : 'bg-indigo-600 text-white border-indigo-500 hover:bg-indigo-700'
+                                }`}
+                              >
+                                {offer.isActive !== false ? 'Pause' : 'Activate'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleStartEditOffer(offer)}
+                                className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg border border-slate-250 cursor-pointer flex items-center justify-center"
+                                title="Edit Offer"
+                              >
+                                <Edit2 className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteOffer(offer.id)}
+                                className="p-1.5 bg-rose-50 hover:bg-rose-600 hover:text-white text-rose-600 rounded-lg border border-rose-100 cursor-pointer flex items-center justify-center"
+                                title="Delete Offer"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            </motion.div>
+          )}
+
           {/* NOTIFICATION SUBSCRIPTIONS */}
           {activeTab === 'notifications' && (
             <motion.div
@@ -3050,15 +3453,148 @@ export default function Dashboard({ profile, onUpdateProfile, onDeleteProfile, a
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="space-y-6"
+              className="space-y-8 text-left"
             >
-              <div className="space-y-1">
-                <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
-                  <BellRing className="h-5 w-5 text-indigo-600" />
-                  <span>Configure Category Notifications</span>
-                </h2>
-                <p className="text-sm text-slate-400">Opt in to the creative categories you specialize in. When a prospective client posts a project brief in these sectors, we will broadcast a secure live alert straight to your profile logs.</p>
+              {/* SECTION 1: CALL BOOKINGS NOTIFICATION BOARD */}
+              <div className="bg-slate-900 text-white p-6 md:p-8 rounded-3xl border border-slate-800 shadow-xl space-y-6 relative overflow-hidden">
+                <div className="absolute -right-16 -top-16 w-44 h-44 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
+                
+                <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
+                  <div className="space-y-1">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-indigo-500/20 text-indigo-300 text-[9px] font-black uppercase tracking-widest border border-indigo-500/10">
+                      LIVE Notification Board
+                    </span>
+                    <h3 className="text-lg font-black uppercase tracking-wider text-white flex items-center gap-2">
+                      <PhoneCall className="h-5 w-5 text-indigo-400 animate-pulse" />
+                      <span>Inbound Call Bookings</span>
+                    </h3>
+                  </div>
+                  <div className="shrink-0">
+                    <span className="text-[10px] font-black uppercase bg-white/5 border border-white/10 px-3 py-1.5 text-slate-300 rounded-xl">
+                      { (profile.requestedCalls || []).filter(r => r.status === 'pending').length } Pending Callback Requests
+                    </span>
+                  </div>
+                </div>
+
+                { (!profile.requestedCalls || profile.requestedCalls.length === 0) ? (
+                  <div className="text-center py-10 border border-dashed border-white/10 rounded-2xl bg-white/5 relative z-10">
+                    <Phone className="h-8 w-8 text-slate-500 mx-auto mb-2" />
+                    <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">No call bookings yet</p>
+                    <p className="text-[10px] text-slate-500 mt-1">When prospective clients request a callback on your profile, they will appear here in real time.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1 relative z-10">
+                    {profile.requestedCalls.map((req) => (
+                      <div
+                        key={req.id}
+                        className={`p-4 rounded-2xl border ${
+                          req.status === 'completed'
+                            ? 'bg-slate-950/20 border-white/5 opacity-60'
+                            : req.status === 'declined'
+                            ? 'bg-slate-950/10 border-white/5 opacity-50 line-through'
+                            : 'bg-white/5 border-white/10 hover:border-white/20'
+                        } transition-all`}
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs font-black text-slate-100">{req.clientName}</span>
+                              <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded ${
+                                req.status === 'pending'
+                                  ? 'bg-amber-500/15 text-amber-400 border border-amber-500/20 animate-pulse'
+                                  : req.status === 'completed'
+                                  ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
+                                  : 'bg-slate-500/15 text-slate-400 border border-white/5'
+                              }`}>
+                                {req.status}
+                              </span>
+                              <div className="flex gap-1 flex-wrap">
+                                {req.contactMethods.map((method) => (
+                                  <span key={method} className="text-[9px] font-black px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 uppercase tracking-widest border border-indigo-500/10">
+                                    {method}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-3 text-[10px] font-bold text-slate-400">
+                              <span className="flex items-center gap-1 text-slate-300">
+                                <Phone className="h-3 w-3 text-indigo-400" />
+                                {req.phone}
+                              </span>
+                              <span className="flex items-center gap-1 text-slate-300">
+                                <Calendar className="h-3 w-3 text-indigo-400" />
+                                {req.preferredTime}
+                              </span>
+                            </div>
+
+                            {req.briefMessage && (
+                              <p className="text-xs text-slate-300 italic bg-black/40 p-2.5 rounded-lg border border-white/5 mt-1.5">
+                                "{req.briefMessage}"
+                              </p>
+                            )}
+
+                            <p className="text-[8px] text-slate-500 uppercase tracking-wide">
+                              Received on {req.createdAt}
+                            </p>
+                          </div>
+
+                          {/* Action Controls for Call Request */}
+                          <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-start">
+                            {req.status === 'pending' && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = profile.requestedCalls?.map(r => r.id === req.id ? { ...r, status: 'completed' as const } : r);
+                                    saveProfileDraft({ ...profile, requestedCalls: updated });
+                                  }}
+                                  className="p-1.5 bg-emerald-500/10 hover:bg-emerald-600 hover:text-white text-emerald-400 rounded-lg transition-all cursor-pointer border border-emerald-500/10"
+                                  title="Mark as Completed"
+                                >
+                                  <Check className="h-4 w-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = profile.requestedCalls?.map(r => r.id === req.id ? { ...r, status: 'declined' as const } : r);
+                                    saveProfileDraft({ ...profile, requestedCalls: updated });
+                                  }}
+                                  className="p-1.5 bg-rose-500/10 hover:bg-rose-600 hover:text-white text-rose-400 rounded-lg transition-all cursor-pointer border border-rose-500/10"
+                                  title="Decline Request"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = profile.requestedCalls?.filter(r => r.id !== req.id);
+                                saveProfileDraft({ ...profile, requestedCalls: updated });
+                              }}
+                              className="p-1.5 bg-white/5 hover:bg-rose-600 hover:text-white text-slate-400 rounded-lg transition-all cursor-pointer border border-white/5"
+                              title="Delete Booking Record"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
+
+              {/* Existing Categories configuration block */}
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <BellRing className="h-5 w-5 text-indigo-600" />
+                    <span>Configure Category Notifications</span>
+                  </h2>
+                  <p className="text-xs text-slate-400">Opt in to the creative categories you specialize in. When a prospective client posts a project brief in these sectors, we will broadcast a secure live alert straight to your profile logs.</p>
+                </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 bg-slate-50 p-6 rounded-2xl">
                 {[
@@ -3110,6 +3646,7 @@ export default function Dashboard({ profile, onUpdateProfile, onDeleteProfile, a
                   );
                 })}
               </div>
+            </div>
 
               {/* Real-time jobs stats matching notifications */}
               <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-xl flex items-center justify-between gap-4 border border-indigo-100/50 dark:border-indigo-900/30">

@@ -26,7 +26,8 @@ import {
   upsertJobInSupabase, 
   deleteJobFromSupabase,
   generateUUID,
-  deleteAllProfilesAndJobsFromSupabase
+  deleteAllProfilesAndJobsFromSupabase,
+  createReviewInSupabase
 } from './utils/supabaseService';
 import { 
   processProfileUploads, 
@@ -282,19 +283,19 @@ export default function App() {
         title: 'Photography Professional',
         avatarUrl: user.user_metadata?.avatar_url || user.user_metadata?.picture || '',
         coverUrl: '',
-        bio: `${name} is a creative practitioner specialized in digital production and content creation in Kenya. Securely authenticated via Google.`,
-        location: 'Nairobi County',
+        bio: `Securely authenticated via Google. Complete your profile to add your contact information.`,
+        location: '',
         hourlyRate: 4000,
         category: primaryCategory,
-        skills: ['Digital Production', 'Photography', 'Videography', 'Social Media'],
+        skills: [],
         theme: 'slate',
         layoutOrder: ['hero', 'categories', 'gallery', 'analytics', 'reviews', 'contact'],
         subscribedCategories: [primaryCategory],
         notificationCount: 0,
         unreadMessagesCount: 0,
         email: email,
-        phone: '+254 700 111 222',
-        whatsapp: '+254 700 111 222',
+        phone: '',
+        whatsapp: '',
         categorySections: [
           {
             category: 'videography',
@@ -619,35 +620,54 @@ export default function App() {
   };
 
   // Callback to add public reviews (freelancers cannot delete them!)
-  const handleAddReview = async (freelancerId: string, reviewBrief: Omit<Review, 'id' | 'date'>) => {
-    const newReview: Review = {
-      id: `r_${Date.now()}`,
-      authorName: reviewBrief.authorName,
-      authorRole: reviewBrief.authorRole || 'Client Visitor',
+  const handleAddReview = async (freelancerId: string, reviewBrief: Omit<Review, 'id' | 'date'>, specificJobId?: string) => {
+    if (!isLoggedIn || !activeRole) {
+      triggerToast("Please sign in or sign up to leave a star review.", "info");
+      return { success: false, error: "Authentication required." };
+    }
+
+    let jobId = specificJobId;
+    if (!jobId) {
+      const completedJob = jobs.find(j => 
+        j.isCompleted && 
+        (
+          (j.userId === activeRole && j.hiredCreativeId === freelancerId) ||
+          (j.userId === freelancerId && j.hiredCreativeId === activeRole)
+        )
+      );
+      if (completedJob) {
+        jobId = completedJob.id;
+      }
+    }
+
+    const reviewerProfile = freelancers.find(f => f.id === activeRole);
+    const authorName = reviewBrief.authorName || (activeRole === 'client' ? 'Client Partner' : (reviewerProfile?.fullName || 'Talanta Member'));
+    const authorRole = reviewBrief.authorRole || (activeRole === 'client' ? 'Client Partner' : (reviewerProfile?.title || 'Signed In Member'));
+
+    const res = await createReviewInSupabase({
+      reviewerId: activeRole,
+      reviewedUserId: freelancerId,
+      jobId: jobId,
       rating: reviewBrief.rating,
       comment: reviewBrief.comment,
-      date: new Date().toISOString().split('T')[0]
-    };
+      reviewerName: authorName,
+      reviewerRole: authorRole
+    });
 
-    let updatedF: FreelancerProfile | null = null;
-    setFreelancers(prev => prev.map(f => {
-      if (f.id === freelancerId) {
-        updatedF = {
-          ...f,
-          reviews: [...f.reviews, newReview]
-        };
-        return updatedF;
-      }
-      return f;
-    }));
-    triggerToast(`Star Review posted!`);
-
-    if (updatedF) {
+    if (res.success) {
+      triggerToast("Star Review posted successfully!");
       try {
-        await upsertFreelancerProfile(updatedF);
+        const dbFreelancers = await loadFreelancerProfilesFromSupabase();
+        if (dbFreelancers !== null) {
+          setFreelancers(dbFreelancers);
+        }
       } catch (err) {
-        console.error("Error saving review to Supabase:", err);
+        console.error("Error reloading profiles after review:", err);
       }
+      return { success: true };
+    } else {
+      triggerToast(`Could not post review: ${res.error || 'Duplicate review detected.'}`, "info");
+      return { success: false, error: res.error };
     }
   };
 
@@ -999,6 +1019,7 @@ export default function App() {
           }
         }}
         isLoggedIn={isLoggedIn}
+        jobs={jobs}
       />
     );
   }
@@ -1163,6 +1184,7 @@ export default function App() {
                 onUpdateFreelancer={handleUpdateProfile}
                 onUpdateJob={handleUpdateJob}
                 isLoggedIn={isLoggedIn}
+                onAddReview={handleAddReview}
               />
             </motion.div>
           )}

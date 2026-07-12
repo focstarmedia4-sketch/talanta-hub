@@ -52,7 +52,7 @@ export default function BrowseTalent({
   ];
 
   const getAverageRating = (profile: FreelancerProfile) => {
-    if (profile.reviews.length === 0) return 5.0;
+    if (!profile.reviews || profile.reviews.length === 0) return null;
     const sum = profile.reviews.reduce((acc, r) => acc + r.rating, 0);
     return Number((sum / profile.reviews.length).toFixed(1));
   };
@@ -307,10 +307,14 @@ export default function BrowseTalent({
                         <h2 className="text-lg font-bold text-slate-900 group-hover:text-indigo-600 transition-colors truncate">
                           {freelancer.fullName}
                         </h2>
-                        <div className="flex items-center gap-1 shrink-0 text-indigo-600 font-bold text-sm bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100/40">
-                          <Star className="h-3.5 w-3.5 fill-indigo-600 text-indigo-600" />
-                          <span>{avgRating}</span>
-                        </div>
+                        {avgRating !== null ? (
+                          <div className="flex items-center gap-1 shrink-0 text-indigo-600 font-bold text-sm bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100/40">
+                            <Star className="h-3.5 w-3.5 fill-indigo-600 text-indigo-600" />
+                            <span>{avgRating}</span>
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-slate-400 font-medium shrink-0 bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-100">New on Talanta Hub</span>
+                        )}
                       </div>
                       <p className="text-sm font-semibold text-indigo-600 truncate">{freelancer.title}</p>
                       <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-1">

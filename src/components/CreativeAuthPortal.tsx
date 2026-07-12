@@ -538,14 +538,14 @@ export function CreativeAuthPortal({
         username: name.toLowerCase().replace(/\s+/g, '_') + '_google',
         categories: ['photography', 'videography'],
         hourlyRate: 4000,
-        bio: `${name} is a creative practitioner specialized in digital production and content creation in Kenya. Securely authenticated via Google.`,
-        location: "Nairobi County",
-        skills: ['Digital Production', 'Photography', 'Videography', 'Social Media'],
+        bio: `Securely authenticated via Google. Complete your profile to add your contact information.`,
+        location: "",
+        skills: [],
         email: email,
-        phone: "+254 700 111 222",
-        whatsapp: "+254 700 111 222",
+        phone: "",
+        whatsapp: "",
         avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200",
-        coverUrl: "https://images.unsplash.com/photo-1557683316-973673baf926?auto=format&fit=crop&q=80&w=1200",
+        coverUrl: "",
         password: "google_oauth_bypass"
       });
       
