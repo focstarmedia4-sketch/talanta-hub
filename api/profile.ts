@@ -63,6 +63,10 @@ export default async function handler(req: Request, res: Response) {
               <meta property="og:title" content="Talanta Hub | Where Talent Meets Opportunity">
               <meta property="og:description" content="Discover top creative talent in Kenya. Browse portfolios, post jobs, and connect directly on Talanta Hub.">
               <meta property="og:image" content="https://talantahub.co.ke/logo.png">
+              <meta property="og:image:secure_url" content="https://talantahub.co.ke/logo.png">
+              <meta property="og:image:type" content="image/png">
+              <meta property="og:image:width" content="500">
+              <meta property="og:image:height" content="500">
               <meta property="og:url" content="https://talantahub.co.ke/">
               <meta property="og:type" content="website">
               <meta name="twitter:card" content="summary_large_image">
@@ -78,7 +82,34 @@ export default async function handler(req: Request, res: Response) {
       const fullName = profile.full_name || 'Creative Partner';
       const categoryLabel = profile.title || profile.category || 'Creative Professional';
       const bioText = profile.bio || `View ${fullName}'s creative portfolio and connect with them on Talanta Hub.`;
-      const avatarUrl = profile.avatar_url || 'https://talantahub.co.ke/logo.png';
+      
+      // Determine the absolute base URL of the application dynamically
+      const host = req.headers['x-forwarded-host'] || req.headers.host || 'talantahub.co.ke';
+      const protocol = req.headers['x-forwarded-proto'] || 'https';
+      const baseUrl = `${protocol}://${host}`;
+
+      let absoluteAvatarUrl = 'https://talantahub.co.ke/logo.png';
+      let ogImageType = 'image/png';
+
+      if (profile.avatar_url) {
+        const avatarPath = profile.avatar_url.trim();
+        if (avatarPath.startsWith('http://') || avatarPath.startsWith('https://')) {
+          absoluteAvatarUrl = avatarPath;
+        } else {
+          // Construct absolute URL targeting our custom profile-image secure gateway
+          absoluteAvatarUrl = `${baseUrl}/api/profile-image?username=${encodeURIComponent(profile.username)}`;
+        }
+
+        if (avatarPath.toLowerCase().endsWith('.png')) {
+          ogImageType = 'image/png';
+        } else if (avatarPath.toLowerCase().endsWith('.webp')) {
+          ogImageType = 'image/webp';
+        } else if (avatarPath.toLowerCase().endsWith('.gif')) {
+          ogImageType = 'image/gif';
+        } else {
+          ogImageType = 'image/jpeg';
+        }
+      }
 
       return res.status(200).send(`
         <!DOCTYPE html>
@@ -90,14 +121,19 @@ export default async function handler(req: Request, res: Response) {
             
             <meta property="og:title" content="${fullName} | Talanta Hub">
             <meta property="og:description" content="View ${fullName}'s creative portfolio and connect with them on Talanta Hub — Where Talent Meets Opportunity.">
-            <meta property="og:image" content="${avatarUrl}">
+            <meta property="og:image" content="${absoluteAvatarUrl}">
+            <meta property="og:image:secure_url" content="${absoluteAvatarUrl}">
+            <meta property="og:image:type" content="${ogImageType}">
+            <meta property="og:image:width" content="500">
+            <meta property="og:image:height" content="500">
+            <meta property="og:image:alt" content="${fullName}'s Profile Photo">
             <meta property="og:url" content="https://talantahub.co.ke/profile/${profile.username}">
             <meta property="og:type" content="profile">
             
             <meta name="twitter:card" content="summary_large_image">
             <meta name="twitter:title" content="${fullName} | Talanta Hub">
             <meta name="twitter:description" content="View ${fullName}'s creative portfolio and connect with them on Talanta Hub — Where Talent Meets Opportunity.">
-            <meta name="twitter:image" content="${avatarUrl}">
+            <meta name="twitter:image" content="${absoluteAvatarUrl}">
             
             <link rel="canonical" href="https://talantahub.co.ke/profile/${profile.username}">
           </head>
@@ -120,6 +156,10 @@ export default async function handler(req: Request, res: Response) {
             <meta property="og:title" content="Talanta Hub | Where Talent Meets Opportunity">
             <meta property="og:description" content="Discover top creative talent in Kenya. Browse portfolios, post jobs, and connect directly on Talanta Hub.">
             <meta property="og:image" content="https://talantahub.co.ke/logo.png">
+            <meta property="og:image:secure_url" content="https://talantahub.co.ke/logo.png">
+            <meta property="og:image:type" content="image/png">
+            <meta property="og:image:width" content="500">
+            <meta property="og:image:height" content="500">
             <meta property="og:type" content="website">
           </head>
           <body>
