@@ -173,6 +173,48 @@ export function CreativeAuthPortal({
   // Sign Up states
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+  const [usernameSuggestions, setUsernameSuggestions] = useState<string[]>([]);
+
+  const handleUsernameChange = (val: string) => {
+    const cleanUsername = val.toLowerCase().replace(/[^a-z0-9_]/g, '');
+    setUsername(cleanUsername);
+    
+    if (!cleanUsername) {
+      setUsernameError(null);
+      setUsernameSuggestions([]);
+      return;
+    }
+    
+    const isTaken = freelancers.some(f => f.username === cleanUsername);
+    if (isTaken) {
+      setUsernameError("This username is already taken!");
+      
+      const base = cleanUsername || 'creative';
+      const suffixOptions = ['pro', 'creative', 'visuals', 'studios', 'designs', '1', '2', '24', '7', 'ke'];
+      const sugs: string[] = [];
+      for (const opt of suffixOptions) {
+        const candidate = isNaN(Number(opt)) ? `${base}_${opt}` : `${base}${opt}`;
+        const isSugTaken = freelancers.some(f => f.username === candidate);
+        if (!isSugTaken && !sugs.includes(candidate)) {
+          sugs.push(candidate);
+          if (sugs.length >= 3) break;
+        }
+      }
+      while (sugs.length < 3) {
+        const rand = Math.floor(10 + Math.random() * 90);
+        const candidate = `${base}${rand}`;
+        const isSugTaken = freelancers.some(f => f.username === candidate);
+        if (!isSugTaken && !sugs.includes(candidate)) {
+          sugs.push(candidate);
+        }
+      }
+      setUsernameSuggestions(sugs);
+    } else {
+      setUsernameError(null);
+      setUsernameSuggestions([]);
+    }
+  };
   const [creativeCategories, setCreativeCategories] = useState<CreativeCategory[]>([]);
   const [categorySearchQuery, setCategorySearchQuery] = useState('');
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
@@ -386,7 +428,7 @@ export function CreativeAuthPortal({
     setAuthError(null);
     setAuthSuccess(null);
 
-    if (!fullName || !username || !bio || !creativeLocation || !creativeEmail || !creativePhone || !creativeWhatsapp) {
+    if (!fullName || !bio || !creativeLocation || !creativeEmail || !creativePhone || !creativeWhatsapp) {
       setAuthError("Please fill in all required fields to complete your profile.");
       return;
     }
@@ -396,9 +438,20 @@ export function CreativeAuthPortal({
       return;
     }
 
-    if (freelancers.some(f => f.username === username.toLowerCase().trim())) {
-      setAuthError("Username is already taken. Please choose another.");
-      return;
+    let finalUsername = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+    if (!finalUsername) {
+      const emailPrefix = creativeEmail.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '_') || 'creative';
+      finalUsername = emailPrefix;
+      let counter = 1;
+      while (freelancers.some(f => f.username === finalUsername)) {
+        finalUsername = `${emailPrefix}_${counter}`;
+        counter++;
+      }
+    } else {
+      if (freelancers.some(f => f.username === finalUsername)) {
+        setAuthError("Username is already taken. Please choose another or select one of the suggestions.");
+        return;
+      }
     }
 
     const skills = skillsText
@@ -408,7 +461,7 @@ export function CreativeAuthPortal({
 
     onJoinAsCreative({
       fullName,
-      username: username.toLowerCase().replace(/\s+/g, '_'),
+      username: finalUsername,
       categories: creativeCategories,
       hourlyRate: parseInt(hourlyRate) || 3500,
       bio,
@@ -754,15 +807,49 @@ export function CreativeAuthPortal({
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Username *</label>
+                      <div className="flex items-center">
+                        <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Username</label>
+                        <span className="text-[9px] text-slate-400 font-bold ml-1.5 uppercase tracking-wide italic">(Optional)</span>
+                      </div>
                       <input
                         type="text"
-                        required
                         placeholder="e.g. macharia_visuals"
                         value={username}
-                        onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s+/g, '_'))}
-                        className="w-full text-xs bg-slate-50 border border-slate-150 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white p-2.5 font-semibold text-slate-900"
+                        onChange={(e) => handleUsernameChange(e.target.value)}
+                        className={`w-full text-xs bg-slate-50 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white p-2.5 font-semibold text-slate-900 ${
+                          usernameError ? 'border-rose-300 bg-rose-50/10 focus:ring-rose-500' : username ? 'border-emerald-300' : 'border-slate-150'
+                        }`}
                       />
+                      {usernameError ? (
+                        <div className="space-y-1.5 mt-1">
+                          <p className="text-[11px] font-bold text-rose-600 flex items-center gap-1">
+                            <span>⚠️ {usernameError}</span>
+                          </p>
+                          {usernameSuggestions.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 items-center">
+                              <span className="text-[9px] text-slate-400 font-black uppercase tracking-wider">Try choosing:</span>
+                              {usernameSuggestions.map((sug) => (
+                                <button
+                                  type="button"
+                                  key={sug}
+                                  onClick={() => handleUsernameChange(sug)}
+                                  className="text-[10px] bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-extrabold px-2.5 py-1 rounded-full border border-indigo-150 transition-all cursor-pointer shadow-3xs"
+                                >
+                                  @{sug}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ) : username ? (
+                        <p className="text-[11px] font-bold text-emerald-600 flex items-center gap-1 mt-1">
+                          <span>✓ Username is available!</span>
+                        </p>
+                      ) : (
+                        <p className="text-[10px] font-medium text-slate-400 mt-1">
+                          Leave empty to auto-generate a unique handle.
+                        </p>
+                      )}
                     </div>
                   </div>
 

@@ -500,11 +500,35 @@ export default function PortfolioView({
   const [copiedLink, setCopiedLink] = useState(false);
 
   const handleShareLink = () => {
-    const portfolioUrl = `${window.location.origin}${window.location.pathname}?profile=${profile.username}`;
-    navigator.clipboard.writeText(portfolioUrl).then(() => {
-      setCopiedLink(true);
-      setTimeout(() => setCopiedLink(false), 3000);
-    });
+    const shareUrl = `${window.location.origin}/profile/${profile.username}`;
+    const shareData = {
+      title: `${profile.fullName} | Talanta Hub`,
+      text: `View ${profile.fullName}'s creative portfolio and connect with them on Talanta Hub — Where Talent Meets Opportunity.`,
+      url: shareUrl,
+    };
+
+    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      navigator.share(shareData)
+        .then(() => {
+          setCopiedLink(true);
+          setTimeout(() => setCopiedLink(false), 3000);
+        })
+        .catch((err) => {
+          if (err.name !== 'AbortError') {
+            console.error('Error sharing:', err);
+          }
+          // Fallback to clipboard
+          navigator.clipboard.writeText(shareUrl).then(() => {
+            setCopiedLink(true);
+            setTimeout(() => setCopiedLink(false), 3000);
+          });
+        });
+    } else {
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        setCopiedLink(true);
+        setTimeout(() => setCopiedLink(false), 3000);
+      });
+    }
   };
 
   const handleReviewSubmit = async (e: React.FormEvent) => {

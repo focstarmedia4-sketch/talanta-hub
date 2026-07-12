@@ -492,7 +492,7 @@ export default function App() {
     };
   }, []);
 
-  // Deep Link router (?profile=alex_video)
+  // Deep Link router (?profile=alex_video and /profile/alex_video)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const profileUser = params.get('profile');
@@ -501,9 +501,93 @@ export default function App() {
       const found = freelancers.find(f => f.username === profileUser);
       if (found) {
         setSharedUsername(profileUser);
+        return;
+      }
+    }
+
+    const path = window.location.pathname;
+    if (path.startsWith('/profile/')) {
+      const usernameFromPath = path.substring('/profile/'.length).trim().replace(/\/$/, '');
+      if (usernameFromPath) {
+        const found = freelancers.find(f => f.username === usernameFromPath);
+        if (found) {
+          setSharedUsername(usernameFromPath);
+        }
       }
     }
   }, [freelancers]);
+
+  // Automatically synchronize URL address bar and SEO Metadata with the active deep-linked profile
+  useEffect(() => {
+    if (sharedUsername) {
+      const cleanPath = `/profile/${sharedUsername}`;
+      if (window.location.pathname !== cleanPath) {
+        window.history.replaceState({}, '', cleanPath);
+      }
+
+      // Update page title and meta tags dynamically for SEO
+      const selected = freelancers.find(f => f.username === sharedUsername);
+      if (selected) {
+        const isOwner = activeRole === selected.id;
+        const displayedProfile = isOwner ? selected : (selected.publishedVersion || selected);
+        const fullName = displayedProfile.fullName || 'Creative Profile';
+        const categoryLabel = displayedProfile.title || displayedProfile.category || 'Creative Partner';
+        const bioText = displayedProfile.bio || '';
+        const avatarUrl = displayedProfile.avatarUrl || 'https://talantahub.co.ke/logo.png';
+
+        document.title = `${fullName} | Talanta Hub`;
+
+        const updateMetaTag = (propertyOrName: string, content: string, isProperty: boolean = false) => {
+          const attribute = isProperty ? 'property' : 'name';
+          let element = document.querySelector(`meta[${attribute}="${propertyOrName}"]`);
+          if (!element) {
+            element = document.createElement('meta');
+            element.setAttribute(attribute, propertyOrName);
+            document.head.appendChild(element);
+          }
+          element.setAttribute('content', content);
+        };
+
+        updateMetaTag('description', `View ${fullName}'s creative portfolio and connect with them on Talanta Hub — Where Talent Meets Opportunity.`, false);
+        updateMetaTag('og:title', `${fullName} | Talanta Hub`, true);
+        updateMetaTag('og:description', `View ${fullName}'s creative portfolio and connect with them on Talanta Hub — Where Talent Meets Opportunity.`, true);
+        updateMetaTag('og:image', avatarUrl, true);
+        updateMetaTag('og:url', `https://talantahub.co.ke/profile/${displayedProfile.username}`, true);
+        updateMetaTag('og:type', 'profile', true);
+        updateMetaTag('twitter:card', 'summary_large_image', false);
+
+        let canonicalLink = document.querySelector('link[rel="canonical"]');
+        if (!canonicalLink) {
+          canonicalLink = document.createElement('link');
+          canonicalLink.setAttribute('rel', 'canonical');
+          document.head.appendChild(canonicalLink);
+        }
+        canonicalLink.setAttribute('href', `https://talantahub.co.ke/profile/${displayedProfile.username}`);
+      }
+    } else {
+      // Restore default metadata
+      document.title = 'Talanta Hub | Where Talent Meets Opportunity';
+      const resetMetaTag = (propertyOrName: string, content: string, isProperty: boolean = false) => {
+        const attribute = isProperty ? 'property' : 'name';
+        const element = document.querySelector(`meta[${attribute}="${propertyOrName}"]`);
+        if (element) {
+          element.setAttribute('content', content);
+        }
+      };
+      resetMetaTag('description', 'Talanta Hub — Where Talent Meets Opportunity.', false);
+      resetMetaTag('og:title', 'Talanta Hub | Where Talent Meets Opportunity', true);
+      resetMetaTag('og:description', 'Talanta Hub — Where Talent Meets Opportunity.', true);
+      resetMetaTag('og:image', 'https://talantahub.co.ke/logo.png', true);
+      resetMetaTag('og:url', 'https://talantahub.co.ke/', true);
+      resetMetaTag('og:type', 'website', true);
+      resetMetaTag('twitter:card', 'summary', false);
+
+      const canonicalLink = document.querySelector('link[rel="canonical"]');
+      if (canonicalLink) {
+        canonicalLink.setAttribute('href', window.location.origin);
+      }
+    }
+  }, [sharedUsername, freelancers, activeRole]);
 
   const triggerToast = (message: string, type: 'success' | 'info' = 'success') => {
     setToastMessage(message);
@@ -563,7 +647,33 @@ export default function App() {
             };
           }
         } else {
-          finalProfile = resolvedProfile;
+          // It's a third-party update (e.g. client submitting a call request or leaving a review)
+          // We must merge these updates into the main working profile AND its nested publishedVersion,
+          // instead of completely overwriting the working profile with the published snapshot.
+          
+          // First, merge into the main working profile (f)
+          const mergedMain = {
+            ...f,
+            requestedCalls: updated.requestedCalls !== undefined ? updated.requestedCalls : f.requestedCalls,
+            reviews: updated.reviews !== undefined ? updated.reviews : f.reviews,
+            analytics: updated.analytics !== undefined ? updated.analytics : f.analytics,
+            walletBalanceKsh: updated.walletBalanceKsh !== undefined ? updated.walletBalanceKsh : f.walletBalanceKsh,
+            unlockedJobIds: updated.unlockedJobIds !== undefined ? updated.unlockedJobIds : f.unlockedJobIds,
+          };
+
+          // Next, if there is a publishedVersion, merge into f.publishedVersion too
+          if (f.publishedVersion) {
+            mergedMain.publishedVersion = {
+              ...f.publishedVersion,
+              requestedCalls: updated.requestedCalls !== undefined ? updated.requestedCalls : f.publishedVersion.requestedCalls,
+              reviews: updated.reviews !== undefined ? updated.reviews : f.publishedVersion.reviews,
+              analytics: updated.analytics !== undefined ? updated.analytics : f.publishedVersion.analytics,
+              walletBalanceKsh: updated.walletBalanceKsh !== undefined ? updated.walletBalanceKsh : f.publishedVersion.walletBalanceKsh,
+              unlockedJobIds: updated.unlockedJobIds !== undefined ? updated.unlockedJobIds : f.publishedVersion.unlockedJobIds,
+            };
+          }
+
+          finalProfile = mergedMain;
         }
         return finalProfile;
       }
@@ -571,11 +681,11 @@ export default function App() {
     }));
 
     try {
-      await upsertFreelancerProfile(uploadedProfile);
-      if (uploadedProfile.portfolio) {
+      await upsertFreelancerProfile(finalProfile);
+      if (uploadedProfile.portfolio && activeRole === updated.id) {
         await savePortfolioItems(uploadedProfile.id, uploadedProfile.portfolio);
       }
-      if (uploadedProfile.feedPosts) {
+      if (uploadedProfile.feedPosts && activeRole === updated.id) {
         await saveFeedPosts(uploadedProfile.id, uploadedProfile.feedPosts);
       }
     } catch (err) {
@@ -987,7 +1097,7 @@ export default function App() {
             </div>
             <button
               onClick={() => {
-                window.history.pushState({}, '', window.location.pathname);
+                window.history.pushState({}, '', '/');
                 setSharedUsername(null);
               }}
               className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-all shadow-md cursor-pointer"
@@ -1008,7 +1118,7 @@ export default function App() {
         onSendMessageFromContact={handleSendMessageFromContact}
         onBackToMarketplace={() => {
           // Clear query params to return
-          window.history.pushState({}, '', window.location.pathname);
+          window.history.pushState({}, '', '/');
           setSharedUsername(null);
         }}
         allFreelancers={freelancers}
@@ -1227,6 +1337,7 @@ export default function App() {
                        setCurrentTab('jobs');
                      }}
                      onUpdateJob={handleUpdateJob}
+                     allFreelancers={freelancers}
                   />
                 ) : (
                   <div className="text-center py-12">Creative Profile not found.</div>

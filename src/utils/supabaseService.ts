@@ -173,12 +173,21 @@ export function generateUUID(): string {
 
 export function mapProfileFromDB(dbRow: any, dbPortfolio: any[] = [], dbPosts: any[] = []): FreelancerProfile {
   let notableClients: any[] | undefined = undefined;
+  let requestedCalls: any[] | undefined = undefined;
   const categorySections = (dbRow.category_sections || []).filter((sec: any) => {
     if (sec.category === '__notable_clients__') {
       try {
         notableClients = JSON.parse(sec.description);
       } catch (e) {
         console.warn('Error parsing packed notable clients:', e);
+      }
+      return false;
+    }
+    if (sec.category === '__requested_calls__') {
+      try {
+        requestedCalls = JSON.parse(sec.description);
+      } catch (e) {
+        console.warn('Error parsing packed requested calls:', e);
       }
       return false;
     }
@@ -201,6 +210,7 @@ export function mapProfileFromDB(dbRow: any, dbPortfolio: any[] = [], dbPosts: a
     layoutOrder: dbRow.layout_order || ['hero', 'categories', 'gallery', 'analytics', 'reviews', 'contact'],
     categorySections,
     notableClients,
+    requestedCalls,
     reviews: dbRow.reviews || [],
     analytics: dbRow.analytics || {
       totalViews: 0,
@@ -249,6 +259,15 @@ export function mapProfileToDB(profile: FreelancerProfile): any {
       title: 'Notable Clients',
       customThumbnail: '',
       description: JSON.stringify(profile.notableClients),
+      visible: false
+    });
+  }
+  if (profile.requestedCalls) {
+    categorySections.push({
+      category: '__requested_calls__' as any,
+      title: 'Requested Calls',
+      customThumbnail: '',
+      description: JSON.stringify(profile.requestedCalls),
       visible: false
     });
   }

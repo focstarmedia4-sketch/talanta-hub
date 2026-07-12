@@ -26,9 +26,10 @@ interface DashboardProps {
   allJobs: any[];
   onViewJob?: (jobId: string) => void;
   onUpdateJob?: (updatedJob: any) => void;
+  allFreelancers?: FreelancerProfile[];
 }
 
-export default function Dashboard({ profile, onUpdateProfile, onDeleteProfile, allJobs, onViewJob, onUpdateJob }: DashboardProps) {
+export default function Dashboard({ profile, onUpdateProfile, onDeleteProfile, allJobs, onViewJob, onUpdateJob, allFreelancers = [] }: DashboardProps) {
   const [activeTab, setActiveTab] = useState<'branding' | 'portfolio' | 'timeline' | 'offers' | 'notifications' | 'password'>('branding');
   
   // Change Password Form State
@@ -902,6 +903,61 @@ export default function Dashboard({ profile, onUpdateProfile, onDeleteProfile, a
     setIsEditingName(false);
   };
 
+  // Username editing state
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
+  const [tempUsername, setTempUsername] = useState(profile.username || '');
+  const [dashUsernameError, setDashUsernameError] = useState<string | null>(null);
+  const [dashUsernameSuggestions, setDashUsernameSuggestions] = useState<string[]>([]);
+
+  useEffect(() => {
+    setTempUsername(profile.username || '');
+  }, [profile.username]);
+
+  const handleSaveUsername = () => {
+    const cleanUsername = tempUsername.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+    if (!cleanUsername) {
+      setDashUsernameError("Username cannot be empty.");
+      setDashUsernameSuggestions([]);
+      return;
+    }
+
+    const isTaken = (allFreelancers || []).some(f => f.id !== profile.id && f.username === cleanUsername);
+    if (isTaken) {
+      setDashUsernameError("This username is already taken. Please choose another.");
+      
+      const base = cleanUsername || 'creative';
+      const suffixOptions = ['pro', 'creative', 'visuals', 'studios', 'designs', '1', '2', '24', '7', 'ke'];
+      const sugs: string[] = [];
+      for (const opt of suffixOptions) {
+        const candidate = isNaN(Number(opt)) ? `${base}_${opt}` : `${base}${opt}`;
+        const isSugTaken = (allFreelancers || []).some(f => f.username === candidate);
+        if (!isSugTaken && !sugs.includes(candidate)) {
+          sugs.push(candidate);
+          if (sugs.length >= 3) break;
+        }
+      }
+      while (sugs.length < 3) {
+        const rand = Math.floor(10 + Math.random() * 90);
+        const candidate = `${base}${rand}`;
+        const isSugTaken = (allFreelancers || []).some(f => f.username === candidate);
+        if (!isSugTaken && !sugs.includes(candidate)) {
+          sugs.push(candidate);
+        }
+      }
+      setDashUsernameSuggestions(sugs);
+      return;
+    }
+
+    saveProfileDraft({
+      ...profile,
+      username: cleanUsername
+    });
+    
+    setIsEditingUsername(false);
+    setDashUsernameError(null);
+    setDashUsernameSuggestions([]);
+  };
+
   // Bio editing state
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [tempBio, setTempBio] = useState(profile.bio);
@@ -1330,6 +1386,97 @@ export default function Dashboard({ profile, onUpdateProfile, onDeleteProfile, a
               <Pen className="h-3.5 w-3.5 text-black" />
             </button>
           </h3>
+        )}
+
+        {isEditingUsername ? (
+          <div className="flex flex-col items-center justify-center gap-1.5 max-w-sm mx-auto py-1">
+            <div className="flex items-center gap-2 w-full">
+              <span className="text-sm font-bold text-slate-400">@</span>
+              <input
+                type="text"
+                value={tempUsername}
+                onChange={(e) => {
+                  const val = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '');
+                  setTempUsername(val);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSaveUsername();
+                  if (e.key === 'Escape') {
+                    setTempUsername(profile.username || '');
+                    setIsEditingUsername(false);
+                    setDashUsernameError(null);
+                    setDashUsernameSuggestions([]);
+                  }
+                }}
+                className="text-center text-sm font-bold text-slate-800 border-b-2 border-indigo-600 bg-transparent focus:outline-none w-full max-w-xs py-0.5"
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={handleSaveUsername}
+                className="p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all cursor-pointer shadow-sm active:scale-95 shrink-0"
+                title="Save Username"
+              >
+                <CheckCircle className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTempUsername(profile.username || '');
+                  setIsEditingUsername(false);
+                  setDashUsernameError(null);
+                  setDashUsernameSuggestions([]);
+                }}
+                className="p-1.5 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-all cursor-pointer border border-slate-200 shrink-0"
+                title="Cancel"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            {dashUsernameError && (
+              <p className="text-[11px] font-bold text-rose-600">{dashUsernameError}</p>
+            )}
+            {dashUsernameSuggestions.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 justify-center mt-1">
+                <span className="text-[10px] text-slate-400 font-semibold self-center">Try:</span>
+                {dashUsernameSuggestions.map((sug) => (
+                  <button
+                    key={sug}
+                    type="button"
+                    onClick={() => {
+                      setTempUsername(sug);
+                      setDashUsernameError(null);
+                      setDashUsernameSuggestions([]);
+                    }}
+                    className="text-[10px] bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-extrabold px-2 py-0.5 rounded-full border border-indigo-100 transition-all cursor-pointer"
+                  >
+                    @{sug}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center justify-center gap-1 group/username select-none py-1">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider bg-slate-100 px-2 py-0.5 rounded-md">
+              @{profile.username || 'username_not_set'}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setTempUsername(profile.username || '');
+                setIsEditingUsername(true);
+                setDashUsernameError(null);
+                setDashUsernameSuggestions([]);
+              }}
+              className="p-1 hover:bg-slate-100 rounded-lg text-black hover:text-black cursor-pointer transition-colors"
+              title="Edit Username"
+            >
+              <Pen className="h-3 w-3 text-black" />
+            </button>
+          </div>
         )}
         {isEditingBio ? (
           <div className="flex items-start justify-center gap-2 max-w-lg mx-auto py-1">
