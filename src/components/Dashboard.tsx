@@ -10,7 +10,8 @@ import {
   ArrowUp, ArrowDown, BellRing, Trash, HelpCircle, Activity,
   Pen, Video, X, ChevronDown, ChevronUp, EyeOff, Globe, Lock, Unlock,
   UploadCloud, AlertCircle, Trash2, Edit2, Check, SlidersHorizontal, Filter,
-  Phone, PhoneCall, Calendar, Clock, Tag, Percent, Megaphone
+  Phone, PhoneCall, Calendar, Clock, Tag, Percent, Megaphone,
+  Share2, Copy
 } from 'lucide-react';
 import { FreelancerProfile, CreativeCategory, ProfileTheme, PortfolioItem, CategorySection } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -903,6 +904,40 @@ export default function Dashboard({ profile, onUpdateProfile, onDeleteProfile, a
     setIsEditingName(false);
   };
 
+  // Share state
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const handleShareProfile = () => {
+    const shareUrl = `${window.location.origin}/profile/${profile.username}`;
+    const shareData = {
+      title: `${profile.fullName} | Talanta Hub`,
+      text: `View ${profile.fullName}'s creative portfolio and connect with them on Talanta Hub — Where Talent Meets Opportunity.`,
+      url: shareUrl,
+    };
+
+    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      navigator.share(shareData)
+        .then(() => {
+          setCopiedLink(true);
+          setTimeout(() => setCopiedLink(false), 3000);
+        })
+        .catch((err) => {
+          if (err.name !== 'AbortError') {
+            console.error('Error sharing:', err);
+          }
+          navigator.clipboard.writeText(shareUrl).then(() => {
+            setCopiedLink(true);
+            setTimeout(() => setCopiedLink(false), 3000);
+          });
+        });
+    } else {
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        setCopiedLink(true);
+        setTimeout(() => setCopiedLink(false), 3000);
+      });
+    }
+  };
+
   // Username editing state
   const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [tempUsername, setTempUsername] = useState(profile.username || '');
@@ -1543,6 +1578,27 @@ export default function Dashboard({ profile, onUpdateProfile, onDeleteProfile, a
             ))}
           </div>
         )}
+
+        {/* Share Profile Button Row */}
+        <div className="pt-4 flex justify-center">
+          <button
+            type="button"
+            onClick={handleShareProfile}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl shadow-md transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
+          >
+            {copiedLink ? (
+              <>
+                <Check className="h-4 w-4 text-emerald-300 animate-pulse" />
+                <span>Link Copied!</span>
+              </>
+            ) : (
+              <>
+                <Share2 className="h-4 w-4 text-indigo-200" />
+                <span>Share My Public Profile</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Live Matching Job Alerts (Now positioned right below skills, independent & visible) */}

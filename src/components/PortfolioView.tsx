@@ -1719,7 +1719,7 @@ export default function PortfolioView({
                 className="flex items-center gap-2 px-3.5 py-2 bg-white text-black text-xs font-extrabold tracking-wide uppercase rounded-xl transition-all cursor-pointer border border-white shadow-sm"
               >
                 <Share2 className="h-4 w-4 text-indigo-500" />
-                <span>{copiedLink ? 'Copied Link!' : 'Share Portfolio'}</span>
+                <span>{copiedLink ? 'Copied Link!' : 'Share Profile'}</span>
               </button>
             </div>
           </div>
