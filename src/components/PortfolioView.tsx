@@ -248,12 +248,82 @@ export default function PortfolioView({
   const [showPesapalModal, setShowPesapalModal] = useState(false);
   const [pesapalPhone, setPesapalPhone] = useState('');
   const [pesapalEmail, setPesapalEmail] = useState('');
-  const [pesapalMethod, setPesapalMethod] = useState<'mpesa' | 'card'>('mpesa');
+  const [pesapalMethod, setPesapalMethod] = useState<'mpesa' | 'card' | 'secure_online'>('secure_online');
   const [mpesaPin, setMpesaPin] = useState('');
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
   const [expandedOfferId, setExpandedOfferId] = useState<string | null>(null);
+
+  const handleOpenSecureTab = () => {
+    try {
+      const newTab = window.open();
+      if (newTab) {
+        newTab.document.write(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Secure Online Checkout | Talanta Hub</title>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <script src="https://cdn.tailwindcss.com"></script>
+              <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+              <style>
+                body {
+                  font-family: 'Space Grotesk', sans-serif;
+                }
+                .mono {
+                  font-family: 'JetBrains Mono', monospace;
+                }
+              </style>
+            </head>
+            <body class="bg-slate-950 text-white flex items-center justify-center min-h-screen p-4 overflow-hidden">
+              <!-- Radial Glow Effect -->
+              <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(99,102,241,0.15),transparent_60%)] pointer-events-none"></div>
+
+              <div class="relative bg-slate-900/60 border border-indigo-500/20 rounded-3xl p-8 max-w-md w-full text-center space-y-6 shadow-2xl backdrop-blur-xl">
+                <!-- Lock Icon with Glow -->
+                <div class="relative inline-flex p-5 bg-gradient-to-tr from-indigo-500/20 to-rose-500/20 text-indigo-400 rounded-full border border-indigo-500/30 shadow-indigo-500/10 shadow-lg">
+                  <svg class="h-10 w-10 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                </div>
+
+                <div class="space-y-2">
+                  <span class="inline-block px-3 py-1 bg-indigo-500/10 text-indigo-400 text-[10px] font-black uppercase tracking-widest rounded-full border border-indigo-500/20">
+                    Talanta Hub Checkout
+                  </span>
+                  <h1 class="text-2xl font-black uppercase tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-indigo-200 via-rose-200 to-indigo-200">
+                    SECURE ONLINE COMING SOON
+                  </h1>
+                  <p class="text-xs text-slate-400 leading-relaxed max-w-sm mx-auto">
+                    Our developers are currently integrating direct automated payment channels including M-Pesa API push notifications and card settlements.
+                  </p>
+                </div>
+
+                <div class="p-4 bg-slate-950/80 rounded-2xl border border-white/5 space-y-1">
+                  <div class="flex justify-between items-center text-xs">
+                    <span class="font-bold uppercase tracking-wider text-slate-500">Gateway Status:</span>
+                    <span class="font-bold text-rose-400 flex items-center gap-1.5 animate-pulse">
+                      <span class="h-2 w-2 rounded-full bg-rose-500"></span>
+                      INTEGRATING
+                    </span>
+                  </div>
+                </div>
+
+                <div class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                  🔒 Encrypted Payment Security &bull; Talanta Hub 2026
+                </div>
+              </div>
+            </body>
+          </html>
+        `);
+        newTab.document.close();
+      }
+    } catch (e) {
+      console.warn("Could not open external tab:", e);
+    }
+  };
 
   useEffect(() => {
     async function checkAndLoadContacts() {
@@ -2277,28 +2347,34 @@ export default function PortfolioView({
                 <p className="text-[11px] text-slate-400">Contact details unlocked permanently.</p>
               </div>
             ) : (
-              <form onSubmit={handlePesapalPayment} className="space-y-4">
+              <form onSubmit={(e) => { e.preventDefault(); handleOpenSecureTab(); }} className="space-y-4">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Select Payment Method</label>
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
-                      onClick={() => setPesapalMethod('mpesa')}
+                      onClick={() => {
+                        setPesapalMethod('secure_online');
+                        handleOpenSecureTab();
+                      }}
                       className={`py-3 rounded-xl text-xs font-black uppercase tracking-wider border transition-all flex items-center justify-center gap-2 cursor-pointer ${
                         pesapalMethod === 'mpesa'
                           ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg'
-                          : 'bg-slate-800/50 border-white/5 text-slate-400 hover:bg-slate-800'
+                          : 'bg-slate-800/50 border-white/5 text-slate-450 hover:bg-slate-800/80 hover:text-white'
                       }`}
                     >
                       <span>M-PESA</span>
                     </button>
                     <button
                       type="button"
-                      onClick={() => setPesapalMethod('card')}
+                      onClick={() => {
+                        setPesapalMethod('secure_online');
+                        handleOpenSecureTab();
+                      }}
                       className={`py-3 rounded-xl text-xs font-black uppercase tracking-wider border transition-all flex items-center justify-center gap-2 cursor-pointer ${
                         pesapalMethod === 'card'
                           ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg'
-                          : 'bg-slate-800/50 border-white/5 text-slate-400 hover:bg-slate-800'
+                          : 'bg-slate-800/50 border-white/5 text-slate-450 hover:bg-slate-800/80 hover:text-white'
                       }`}
                     >
                       <span>Credit Card</span>
@@ -2306,67 +2382,26 @@ export default function PortfolioView({
                   </div>
                 </div>
 
-                {pesapalMethod === 'mpesa' ? (
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">M-Pesa Mobile Number</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. 0712345678"
-                        value={pesapalPhone}
-                        onChange={(e) => setPesapalPhone(e.target.value)}
-                        className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl focus:border-emerald-500 focus:outline-none text-xs text-white"
-                        disabled={paying}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">M-Pesa PIN (Simulation)</label>
-                      <input
-                        type="password"
-                        placeholder="Enter 4-digit PIN"
-                        maxLength={4}
-                        value={mpesaPin}
-                        onChange={(e) => setMpesaPin(e.target.value.replace(/\D/g, ''))}
-                        className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl focus:border-emerald-500 focus:outline-none text-xs text-white text-center tracking-widest font-black"
-                        disabled={paying}
-                      />
-                    </div>
+                <div className="py-8 px-4 text-center space-y-4 bg-slate-950/50 rounded-2xl border border-white/5">
+                  <div className="inline-flex p-3 bg-indigo-500/15 text-indigo-400 rounded-full border border-indigo-500/25 shadow-lg shadow-indigo-500/5">
+                    <Lock className="h-6 w-6 animate-pulse" />
                   </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Billing Email Address</label>
-                      <input
-                        type="email"
-                        placeholder="your@email.com"
-                        value={pesapalEmail}
-                        onChange={(e) => setPesapalEmail(e.target.value)}
-                        className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl focus:border-indigo-500 focus:outline-none text-xs text-white"
-                        disabled={paying}
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Card Number</label>
-                        <input
-                          type="text"
-                          placeholder="4111 2222 3333 4444"
-                          className="w-full px-3 py-3 bg-slate-950 border border-white/10 rounded-xl focus:outline-none text-xs text-white"
-                          disabled={paying}
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Expiry & CVV</label>
-                        <input
-                          type="text"
-                          placeholder="MM/YY 123"
-                          className="w-full px-3 py-3 bg-slate-950 border border-white/10 rounded-xl focus:outline-none text-xs text-white"
-                          disabled={paying}
-                        />
-                      </div>
-                    </div>
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-black uppercase tracking-widest text-indigo-300">
+                      SECURE ONLINE COMING SOON
+                    </h4>
+                    <p className="text-[11px] text-slate-400 max-w-xs mx-auto leading-relaxed">
+                      We are currently integrating with secure payment processing partners to enable instant, direct, and automated online checkout.
+                    </p>
                   </div>
-                )}
+                  <button
+                    type="button"
+                    onClick={handleOpenSecureTab}
+                    className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition-all shadow-md cursor-pointer"
+                  >
+                    <span>Launch Checkout Info Tab</span>
+                  </button>
+                </div>
 
                 {paymentError && (
                   <p className="text-[11px] text-rose-500 font-bold bg-rose-500/10 p-2.5 rounded-xl border border-rose-500/20 text-center">
@@ -2376,20 +2411,10 @@ export default function PortfolioView({
 
                 <button
                   type="submit"
-                  disabled={paying}
-                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-800 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  {paying ? (
-                    <>
-                      <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>Processing KSh 50...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Unlock className="h-4 w-4" />
-                      <span>Pay KSh 50 via Pesapal</span>
-                    </>
-                  )}
+                  <Unlock className="h-4 w-4" />
+                  <span>SECURE ONLINE COMING SOON</span>
                 </button>
               </form>
             )}
