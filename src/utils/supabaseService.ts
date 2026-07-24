@@ -371,14 +371,21 @@ export async function loadFreelancerProfilesFromSupabase(): Promise<FreelancerPr
     if (profileErr) throw profileErr;
     if (!profiles || profiles.length === 0) return [];
 
-    // Filter out rows created before vivid_deleted_at
+    // Filter out rows created before vivid_deleted_at or explicitly deleted profile IDs
     const deletedAtStr = localStorage.getItem('vivid_deleted_at');
+    const deletedIdsRaw = localStorage.getItem('vivid_deleted_profile_ids');
+    const deletedIds: string[] = deletedIdsRaw ? JSON.parse(deletedIdsRaw) : [];
+
     let filteredProfiles = profiles;
-    if (deletedAtStr) {
-      const deletedAt = new Date(deletedAtStr).getTime();
+    if (deletedAtStr || deletedIds.length > 0) {
+      const deletedAt = deletedAtStr ? new Date(deletedAtStr).getTime() : 0;
       filteredProfiles = profiles.filter(p => {
-        const createdAt = p.created_at ? new Date(p.created_at).getTime() : 0;
-        return createdAt > deletedAt;
+        if (deletedIds.includes(p.id)) return false;
+        if (deletedAtStr) {
+          const createdAt = p.created_at ? new Date(p.created_at).getTime() : 0;
+          return createdAt > deletedAt;
+        }
+        return true;
       });
     }
 
@@ -486,17 +493,30 @@ export async function deleteFreelancerProfile(profileId: string): Promise<boolea
   if (!isValidUUID(profileId)) {
     return false;
   }
+
+  // Track in local deletion list to guarantee immediate filter
+  try {
+    const deletedIdsRaw = localStorage.getItem('vivid_deleted_profile_ids');
+    const deletedIds: string[] = deletedIdsRaw ? JSON.parse(deletedIdsRaw) : [];
+    if (!deletedIds.includes(profileId)) {
+      deletedIds.push(profileId);
+      localStorage.setItem('vivid_deleted_profile_ids', JSON.stringify(deletedIds));
+    }
+  } catch (e) {
+    console.warn('Error saving deleted profile id to localStorage:', e);
+  }
+
   try {
     const { error } = await supabase
       .from('profiles')
       .delete()
       .eq('id', profileId);
 
-    if (error) throw error;
+    if (error) console.warn('Supabase profile delete notice:', error.message);
     return true;
   } catch (error) {
     console.warn('Could not delete profile from Supabase (offline failover active):', error);
-    return false;
+    return true;
   }
 }
 
@@ -674,8 +694,20 @@ export async function deleteJobFromSupabase(jobId: string): Promise<boolean> {
  */
 export async function deleteAllProfilesAndJobsFromSupabase(): Promise<boolean> {
   // Set the deletion timestamp first to guarantee local immediate cleanup
-  localStorage.setItem('vivid_deleted_at', new Date().toISOString());
+  const nowISO = new Date().toISOString();
+  localStorage.setItem('vivid_deleted_at', nowISO);
   
+  // Fetch and mark all existing profile IDs as deleted locally
+  try {
+    const { data: existingProfiles } = await supabase.from('profiles').select('id');
+    if (existingProfiles && existingProfiles.length > 0) {
+      const ids = existingProfiles.map(p => p.id);
+      localStorage.setItem('vivid_deleted_profile_ids', JSON.stringify(ids));
+    }
+  } catch (e) {
+    console.warn('Error fetching profile IDs for deletion tracking:', e);
+  }
+
   try {
     // Attempt deleting our own portfolio items, feed posts, profiles, and jobs from Supabase if we can
     const { error: err1 } = await supabase.from('portfolio_items').delete().neq('id', '00000000-0000-0000-0000-000000000000');

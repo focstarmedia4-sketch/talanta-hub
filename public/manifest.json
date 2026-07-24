@@ -3,8 +3,8 @@
   "name": "Talanta Hub - Where Talent Meets Opportunity",
   "icons": [
     {
-      "src": "https://scontent-mba2-1.xx.fbcdn.net/v/t39.30808-6/743234530_28352526784354583_287462123019773337_n.jpg?stp=dst-jpg_tt6&cstp=mx1535x1024&ctp=s1535x1024&_nc_cat=107&ccb=1-7&_nc_sid=127cfc&_nc_eui2=AeEEz3sMFD8hGSCs9Qm6YnU3gwAxcF6MaBmDADFwXoxoGT02LEXevux6QC8NWd0oBJA-7g7vpUoAxwR3jSkl333x&_nc_ohc=orhRevfZTqAQ7kNvwHAL3XG&_nc_oc=Adou4UuGobqu6Je6FDX-GyWEvxJw6cZsT3WiQma2KwyfObIISDmzN_Z7sIyPLQSI7AI&_nc_zt=23&_nc_ht=scontent-mba2-1.xx&_nc_gid=YKueVE-HV-6Egh66w0rkKg&_nc_ss=7b2a8&oh=00_AQBBBKz_9Lpp-RemVE3T4-_QiFDQ_V5BJXCwof-tpKBAMw&oe=6A56A161",
-      "type": "image/jpeg",
+      "src": "https://ppncmiuqtqtlemhkkzrk.supabase.co/storage/v1/object/public/ulpoaded%20images/talanta%20hub%20logo.png",
+      "type": "image/png",
       "sizes": "512x512"
     }
   ],

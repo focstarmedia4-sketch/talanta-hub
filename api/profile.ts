@@ -62,8 +62,8 @@ export default async function handler(req: Request, res: Response) {
               
               <meta property="og:title" content="Talanta Hub | Where Talent Meets Opportunity">
               <meta property="og:description" content="Discover top creative talent in Kenya. Browse portfolios, post jobs, and connect directly on Talanta Hub.">
-              <meta property="og:image" content="https://talantahub.co.ke/logo.png">
-              <meta property="og:image:secure_url" content="https://talantahub.co.ke/logo.png">
+              <meta property="og:image" content="https://ppncmiuqtqtlemhkkzrk.supabase.co/storage/v1/object/public/ulpoaded%20images/talanta%20hub%20logo.png">
+              <meta property="og:image:secure_url" content="https://ppncmiuqtqtlemhkkzrk.supabase.co/storage/v1/object/public/ulpoaded%20images/talanta%20hub%20logo.png">
               <meta property="og:image:type" content="image/png">
               <meta property="og:image:width" content="500">
               <meta property="og:image:height" content="500">
@@ -88,7 +88,7 @@ export default async function handler(req: Request, res: Response) {
       const protocol = req.headers['x-forwarded-proto'] || 'https';
       const baseUrl = `${protocol}://${host}`;
 
-      let absoluteAvatarUrl = 'https://talantahub.co.ke/logo.png';
+      let absoluteAvatarUrl = 'https://ppncmiuqtqtlemhkkzrk.supabase.co/storage/v1/object/public/ulpoaded%20images/talanta%20hub%20logo.png';
       let ogImageType = 'image/png';
 
       if (profile.avatar_url) {
@@ -155,8 +155,8 @@ export default async function handler(req: Request, res: Response) {
             <meta name="description" content="Discover top creative talent in Kenya. Browse portfolios, post jobs, and connect directly on Talanta Hub.">
             <meta property="og:title" content="Talanta Hub | Where Talent Meets Opportunity">
             <meta property="og:description" content="Discover top creative talent in Kenya. Browse portfolios, post jobs, and connect directly on Talanta Hub.">
-            <meta property="og:image" content="https://talantahub.co.ke/logo.png">
-            <meta property="og:image:secure_url" content="https://talantahub.co.ke/logo.png">
+            <meta property="og:image" content="https://ppncmiuqtqtlemhkkzrk.supabase.co/storage/v1/object/public/ulpoaded%20images/talanta%20hub%20logo.png">
+            <meta property="og:image:secure_url" content="https://ppncmiuqtqtlemhkkzrk.supabase.co/storage/v1/object/public/ulpoaded%20images/talanta%20hub%20logo.png">
             <meta property="og:image:type" content="image/png">
             <meta property="og:image:width" content="500">
             <meta property="og:image:height" content="500">

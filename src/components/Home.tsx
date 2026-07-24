@@ -44,10 +44,9 @@ const formatBudget = (range: string) => {
 };
 
 const SLIDESHOW_IMAGES = [
-  "https://images.pexels.com/photos/34328462/pexels-photo-34328462/free-photo-of-videographer-operating-studio-camera-at-event.jpeg?w=1260&h=750&dpr=1",
-  "https://media.istockphoto.com/id/618066222/photo/camera-capturing-a-forest.jpg?s=612x612&w=0&k=20&c=Mqr3fFI2QPY09_bu3GyRYJvcdwBO2qeHPT88GFsLTS4=",
-  "https://sunny16.com/cdn/shop/articles/What_is_Stock_Photography_Business_-_Stock_Photography_Examples_-_Header_-_Sunny_16_bb6dd35b-1406-401f-a9e9-93e58d0acef3.jpg?v=1746484948",
-  "https://static.vecteezy.com/system/resources/thumbnails/036/483/161/small/ai-generated-interior-of-a-recording-studio-with-lots-of-equipment-ai-generative-photo.jpg"
+  "https://ppncmiuqtqtlemhkkzrk.supabase.co/storage/v1/object/public/ulpoaded%20images/ChatGPT%20Image%20Jul%2024,%202026,%2012_22_27%20PM.png",
+  "https://ppncmiuqtqtlemhkkzrk.supabase.co/storage/v1/object/public/ulpoaded%20images/ChatGPT%20Image%20Jul%2024,%202026,%2012_03_47%20PM.png",
+  "https://ppncmiuqtqtlemhkkzrk.supabase.co/storage/v1/object/public/ulpoaded%20images/ChatGPT%20Image%20Jul%2024,%202026,%2012_19_06%20PM.png"
 ];
 
 interface HomeProps {
@@ -106,10 +105,10 @@ export default function Home({
   const totalJobs = jobs.length;
 
   return (
-    <div className="space-y-16">
+    <div className="w-full space-y-0">
       
       {/* 1. HERO BANNER WITH DYNAMIC SLIDESHOW BACKGROUND */}
-      <section className="relative overflow-hidden rounded-3xl border border-slate-900 shadow-2xl min-h-[460px] flex items-center bg-slate-950 group">
+      <section className="relative overflow-hidden w-full min-h-[calc(100vh-80px)] flex items-end pb-12 md:pb-16 bg-slate-900 group">
         {/* Background Slideshow Layer */}
         <div className="absolute inset-0 z-0">
           {SLIDESHOW_IMAGES.map((img, idx) => (
@@ -130,30 +129,16 @@ export default function Home({
               />
             </motion.div>
           ))}
-          {/* Symmetrical dark gradient overlays for readability */}
-          <div className="absolute inset-0 bg-slate-950/65 z-10" />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-slate-950/65 z-10" />
+          {/* Light overlay for clean display of custom hero image */}
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-slate-950/20 z-10 pointer-events-none" />
         </div>
 
         {/* Foreground Content Over Slide Background */}
-        <div className="relative z-20 max-w-3xl space-y-6 py-12 md:py-16 px-6 md:px-12 text-center mx-auto flex flex-col items-center">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white/10 text-indigo-200 border border-white/10 backdrop-blur-md text-xs font-bold uppercase tracking-wider rounded-xl">
-            <Sparkles className="h-4 w-4 text-amber-400" />
-            <span>Where Talent Meets Opportunity</span>
-          </div>
-          
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-sans font-black tracking-tight leading-tight uppercase text-white">
-            Kenya's Home for <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-purple-300 to-rose-300">Creative Professionals</span>
-          </h1>
-          
-          <p className="text-base md:text-lg text-slate-200 font-medium max-w-2xl leading-relaxed text-center">
-            Discover talented creatives, showcase your work, and connect with clients—all from one professional platform built for Kenya's creative industry.
-          </p>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4 w-full">
+        <div className="relative z-20 max-w-3xl px-6 md:px-12 text-center mx-auto flex flex-col items-center w-full">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full">
             <button
               onClick={() => onChangeTab('browse')}
-              className="w-full sm:w-auto px-6 py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold rounded-2xl shadow-lg hover:shadow-indigo-500/20 transition-all cursor-pointer flex items-center justify-center gap-2 group text-sm uppercase tracking-wider"
+              className="w-full sm:w-auto px-6 py-3.5 bg-indigo-600/90 hover:bg-indigo-500 text-white font-extrabold rounded-2xl shadow-xl hover:shadow-indigo-500/20 transition-all cursor-pointer flex items-center justify-center gap-2 group text-sm uppercase tracking-wider border border-indigo-400/30 backdrop-blur-md"
             >
               <Compass className="h-4 w-4" />
               <span>Explore Talents</span>
@@ -161,7 +146,7 @@ export default function Home({
             </button>
             <button
               onClick={() => onChangeTab('jobs')}
-              className="w-full sm:w-auto px-6 py-3.5 bg-white/10 hover:bg-white/15 text-white border border-white/20 hover:border-white/30 font-extrabold rounded-2xl transition-all cursor-pointer flex items-center justify-center gap-2 text-sm uppercase tracking-wider"
+              className="w-full sm:w-auto px-6 py-3.5 bg-slate-950/60 hover:bg-slate-900/80 text-white border border-white/20 hover:border-white/30 font-extrabold rounded-2xl transition-all cursor-pointer flex items-center justify-center gap-2 text-sm uppercase tracking-wider backdrop-blur-md shadow-xl"
             >
               <Briefcase className="h-4 w-4 text-indigo-300" />
               <span>Job Market</span>
@@ -169,38 +154,44 @@ export default function Home({
           </div>
         </div>
 
-        {/* Navigation Arrows */}
-        <button
-          onClick={handlePrevSlide}
-          className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-slate-950/50 hover:bg-slate-950 text-white flex items-center justify-center border border-white/10 backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 cursor-pointer z-20 hover:scale-105 active:scale-95"
-          title="Previous Slide"
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </button>
-        <button
-          onClick={handleNextSlide}
-          className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-slate-950/50 hover:bg-slate-950 text-white flex items-center justify-center border border-white/10 backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 cursor-pointer z-20 hover:scale-105 active:scale-95"
-          title="Next Slide"
-        >
-          <ChevronRight className="h-5 w-5" />
-        </button>
-
-        {/* Dot Indicators */}
-        <div className="absolute bottom-6 right-8 flex items-center gap-1.5 z-20">
-          {SLIDESHOW_IMAGES.map((_, idx) => (
+        {/* Navigation Arrows & Dot Indicators */}
+        {SLIDESHOW_IMAGES.length > 1 && (
+          <>
             <button
-              key={idx}
-              onClick={() => setCurrentSlide(idx)}
-              className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
-                currentSlide === idx 
-                  ? 'w-6 bg-white' 
-                  : 'w-1.5 bg-white/40 hover:bg-white/80'
-              }`}
-              title={`Go to slide ${idx + 1}`}
-            />
-          ))}
-        </div>
+              onClick={handlePrevSlide}
+              className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-slate-950/50 hover:bg-slate-950 text-white flex items-center justify-center border border-white/10 backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 cursor-pointer z-20 hover:scale-105 active:scale-95"
+              title="Previous Slide"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button
+              onClick={handleNextSlide}
+              className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-slate-950/50 hover:bg-slate-950 text-white flex items-center justify-center border border-white/10 backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 cursor-pointer z-20 hover:scale-105 active:scale-95"
+              title="Next Slide"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+
+            <div className="absolute bottom-6 right-8 flex items-center gap-1.5 z-20">
+              {SLIDESHOW_IMAGES.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setCurrentSlide(idx)}
+                  className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
+                    currentSlide === idx 
+                      ? 'w-6 bg-white' 
+                      : 'w-1.5 bg-white/40 hover:bg-white/80'
+                  }`}
+                  title={`Go to slide ${idx + 1}`}
+                />
+              ))}
+            </div>
+          </>
+        )}
       </section>
+
+      {/* LOWER CONTENT SECTIONS CONTAINER */}
+      <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-16">
 
       {/* 2. PLATFORM QUICK STATS */}
       <section className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -409,6 +400,28 @@ export default function Home({
               </div>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* PARALLAX IMAGE SECTION */}
+      <section 
+        className="relative my-8 overflow-hidden rounded-3xl min-h-[340px] md:min-h-[400px] flex items-center justify-center bg-fixed bg-cover bg-center shadow-xl border border-slate-200/50"
+        style={{
+          backgroundImage: `url("https://ppncmiuqtqtlemhkkzrk.supabase.co/storage/v1/object/public/ulpoaded%20images/ChatGPT%20Image%20Jul%2024,%202026,%2012_34_08%20PM.png")`
+        }}
+      >
+        <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-[1px]" />
+        <div className="relative z-10 text-center px-6 py-12 space-y-4 max-w-2xl mx-auto">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white/10 text-indigo-100 border border-white/20 backdrop-blur-md text-xs font-bold uppercase tracking-wider rounded-xl shadow-xs">
+            <Sparkles className="h-4 w-4 text-amber-400" />
+            <span>Empowering Creative Excellence</span>
+          </div>
+          <h3 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight uppercase">
+            Unleash Your Creative Potential
+          </h3>
+          <p className="text-xs md:text-sm text-slate-200 font-medium max-w-lg mx-auto leading-relaxed">
+            Connect with leading brands and agencies across East Africa. Bring extraordinary ideas to life.
+          </p>
         </div>
       </section>
 
@@ -789,6 +802,7 @@ export default function Home({
         )}
       </AnimatePresence>
 
+      </div>
     </div>
   );
 }

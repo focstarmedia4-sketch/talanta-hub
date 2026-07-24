@@ -30,23 +30,23 @@ import { ImageCropperModal } from './ImageCropperModal';
 import { CreativeAuthPortal } from './CreativeAuthPortal';
 
 const NAV_CATEGORIES: { id: CreativeCategory; label: string; icon: string }[] = [
-  { id: 'actors', label: 'Actors and Performing Artists', icon: '🎭' },
+  { id: 'actors', label: 'Actors And Performing Artists', icon: '🎭' },
   { id: 'baking', label: 'Baking & Cake Art', icon: '🎂' },
-  { id: 'beauty', label: 'BEAUTY AND MAKEUP ARTISTS', icon: '💄' },
-  { id: 'branding', label: 'BRANDING', icon: '🏷️' },
+  { id: 'beauty', label: 'Beauty And Makeup Artists', icon: '💄' },
+  { id: 'branding', label: 'Branding', icon: '🏷️' },
   { id: 'content', label: 'Content Creation', icon: '✍️' },
   { id: 'marketing', label: 'Digital Marketing', icon: '📈' },
-  { id: 'organizers', label: 'EVENT ORGANIZERS', icon: '📅' },
-  { id: 'decorators', label: 'EVENT STYLISTS AND DECORATORS', icon: '✨' },
-  { id: 'hospitality', label: 'EVENT USHERS AND HOSPITALITY', icon: '🤝' },
+  { id: 'organizers', label: 'Event Organizers', icon: '📅' },
+  { id: 'decorators', label: 'Event Stylists And Decorators', icon: '✨' },
+  { id: 'hospitality', label: 'Event Ushers And Hospitality', icon: '🤝' },
   { id: 'events', label: 'Events (MCs, Decor, DJs, Sound)', icon: '🎤' },
   { id: 'fashion', label: 'Fashion', icon: '👗' },
-  { id: 'fineartist', label: 'FINE ARTISTS', icon: '🎨' },
-  { id: 'florists', label: 'FLORISTS AND FLORAL DESIGNERS', icon: '💐' },
+  { id: 'fineartist', label: 'Fine Artists', icon: '🎨' },
+  { id: 'florists', label: 'Florists And Floral Designers', icon: '💐' },
   { id: 'design', label: 'Graphic Design', icon: '🎨' },
   { id: 'illustration', label: 'Illustration', icon: '✏️' },
-  { id: 'interiordesign', label: 'INTERIOR DESIGN', icon: '🏠' },
-  { id: 'musicproducers', label: 'MUSIC PRODUCERS', icon: '🎹' },
+  { id: 'interiordesign', label: 'Interior Design', icon: '🏠' },
+  { id: 'musicproducers', label: 'Music Producers', icon: '🎹' },
   { id: 'photography', label: 'Photography', icon: '📸' },
   { id: 'writers', label: 'Scripts Writers', icon: '📝' },
   { id: 'videography', label: 'Videography', icon: '🎥' },
@@ -615,121 +615,126 @@ export default function Navbar({
   };
 
   return (
-    <header className="bg-[#87cefa] border-b border-[#72bbf0] sticky top-0 z-40 shadow-xs">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+    <header className="bg-[#87cefa] border-b border-white/20 sticky top-0 z-50 shadow-md relative">
+      {/* Background image with 70% opacity */}
+      <div 
+        className="absolute inset-0 bg-cover bg-center opacity-70 pointer-events-none overflow-hidden"
+        style={{
+          backgroundImage: `url("https://ppncmiuqtqtlemhkkzrk.supabase.co/storage/v1/object/public/ulpoaded%20images/ChatGPT%20Image%20Jul%2024,%202026,%2012_41_21%20PM.png")`
+        }}
+      />
+      
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-4">
         
-        {/* Left side: Branding and navigation links */}
-        <div className="flex items-center gap-6 xl:gap-8 shrink-0">
-          {/* 1. LOGO */}
-          <div 
-            id="brand_logo"
-            onClick={() => onChangeTab('home')}
-            className="flex items-center justify-center cursor-pointer shrink-0 hover:opacity-95 transition-opacity h-11 w-24 md:w-28 rounded-xl overflow-hidden"
-          >
-            <img 
-              src="https://scontent-mba2-1.xx.fbcdn.net/v/t39.30808-6/742145051_28334791196128142_8326463267384976090_n.jpg?stp=dst-jpg_tt6&cstp=mx1536x1024&ctp=s1536x1024&_nc_cat=107&ccb=1-7&_nc_sid=127cfc&_nc_eui2=AeGnsGSKpeILKrXEn_NHljlU3XntK1ExEF_dee0rUTEQX1xz2znpCzrNLZAilH3W3BYLk8WMdG3AE0tBT_h8jxl_&_nc_ohc=9H5_unlFY-gQ7kNvwG22gia&_nc_oc=Adprw05SU2dvIpBvi4n_enmtnhV5_YVs5zOA4RbdWAiX0RewsTiDYX6tjolXXpFuoIU&_nc_zt=23&_nc_ht=scontent-mba2-1.xx&_nc_gid=biP5rFVNXRjWfQIXMrOt4Q&_nc_ss=7b2a8&oh=00_AQCnffdCCIDdY3XXe7XY8x6qEtJfUlVcPCuVQ2e0JqPcxw&oe=6A56AA53" 
-              alt="Talanta Hub Logo"
-              className="h-full w-full object-cover"
-              referrerPolicy="no-referrer"
-            />
-          </div>
+        {/* 1. LOGO */}
+        <div 
+          id="brand_logo"
+          onClick={() => onChangeTab('home')}
+          className="flex items-center justify-center cursor-pointer shrink-0 hover:opacity-95 transition-opacity h-10 w-24 md:w-28 rounded-xl overflow-hidden"
+        >
+          <img 
+            src="https://ppncmiuqtqtlemhkkzrk.supabase.co/storage/v1/object/public/ulpoaded%20images/talanta%20hub%20logo.png" 
+            alt="Talanta Hub Logo"
+            className="h-full w-full object-cover"
+            referrerPolicy="no-referrer"
+          />
+        </div>
 
-          {/* Navigation links (Home, Explore Talents, Job Market, Post a Job) */}
-          <nav className="hidden lg:flex items-center gap-3">
-            {/* 1. HOME */}
+        {/* Navigation links (Home, Explore Talents, Job Market, Post a Job) */}
+        <nav className="hidden lg:flex items-center justify-center gap-2 mx-auto">
+          {/* 1. HOME */}
+          <button
+            onClick={() => onChangeTab('home')}
+            className={`h-7 flex items-center gap-1 px-2.5 rounded-md text-[10px] font-semibold capitalize tracking-normal transition-all cursor-pointer border ${
+              currentTab === 'home' 
+                ? 'bg-indigo-950 text-white border-indigo-950 shadow-xs' 
+                : 'bg-white/70 hover:bg-white text-indigo-950 hover:text-indigo-950 border-indigo-900/5'
+            }`}
+          >
+            <span>Home</span>
+          </button>
+
+          {/* 2. EXPLORE TALENTS WITH CATEGORY SELECTOR */}
+          <div ref={categoryDropdownRef} className="relative">
             <button
-              onClick={() => onChangeTab('home')}
-              className={`h-9 flex items-center gap-1.5 px-3.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer border ${
-                currentTab === 'home' 
-                  ? 'bg-indigo-950 text-white border-indigo-950 shadow-sm' 
-                  : 'bg-white/60 hover:bg-white text-indigo-950 hover:text-indigo-950 border-indigo-900/5'
+              onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+              className={`h-7 flex items-center gap-1 px-2.5 rounded-md text-[10px] font-semibold capitalize tracking-normal transition-all cursor-pointer border ${
+                currentTab === 'browse' 
+                  ? 'bg-indigo-950 text-white border-indigo-950 shadow-xs' 
+                  : 'bg-white/70 hover:bg-white text-indigo-950 hover:text-indigo-950 border-indigo-900/5'
               }`}
             >
-              <span>Home</span>
+              <span>{selectedCategory !== 'all' ? (NAV_CATEGORIES.find(c => c.id === selectedCategory)?.label || 'Explore Talents') : 'Explore Talents'}</span>
+              <span className="text-[9px] opacity-60 ml-0.5">▼</span>
             </button>
 
-            {/* 2. EXPLORE TALENTS WITH CATEGORY SELECTOR */}
-            <div ref={categoryDropdownRef} className="relative">
-              <button
-                onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
-                className={`h-9 flex items-center gap-1.5 px-3.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer border ${
-                  currentTab === 'browse' 
-                    ? 'bg-indigo-950 text-white border-indigo-950 shadow-sm' 
-                    : 'bg-white/60 hover:bg-white text-indigo-950 hover:text-indigo-950 border-indigo-900/5'
-                }`}
-              >
-                <span>{selectedCategory !== 'all' ? (NAV_CATEGORIES.find(c => c.id === selectedCategory)?.label || 'Explore Talents') : 'Explore Talents'}</span>
-                <span className="text-[9px] opacity-60 ml-0.5">▼</span>
-              </button>
-
-              <AnimatePresence>
-                {showCategoryDropdown && (
-                  <motion.div
-                     initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                     exit={{ opacity: 0, y: 8, scale: 0.98 }}
-                     transition={{ duration: 0.12 }}
-                     className="absolute left-0 mt-1.5 w-72 rounded-2xl bg-white border border-slate-200 shadow-xl p-1.5 z-50 grid grid-cols-1 gap-0.5 max-h-72 overflow-y-auto"
+            <AnimatePresence>
+              {showCategoryDropdown && (
+                <motion.div
+                   initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                   animate={{ opacity: 1, y: 0, scale: 1 }}
+                   exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                   transition={{ duration: 0.12 }}
+                   className="absolute left-0 mt-1.5 w-64 rounded-xl bg-white/95 backdrop-blur-md border border-slate-200/80 shadow-xl p-1 z-50 grid grid-cols-1 gap-0.5 max-h-72 overflow-y-auto"
+                >
+                  <button
+                    onClick={() => {
+                      onSelectCategory('all');
+                      setShowCategoryDropdown(false);
+                    }}
+                    className={`flex items-center gap-2 w-full text-left px-2.5 py-1 rounded-md text-[10px] font-semibold capitalize tracking-normal transition-all cursor-pointer ${
+                      selectedCategory === 'all'
+                        ? 'bg-indigo-600 text-white'
+                        : 'text-slate-700 hover:bg-slate-100/80 hover:text-slate-900'
+                    }`}
                   >
+                    <span>All Creatives</span>
+                  </button>
+
+                  <div className="h-px bg-slate-200/60 my-0.5" />
+
+                  {NAV_CATEGORIES.map((cat) => (
                     <button
+                      key={cat.id}
                       onClick={() => {
-                        onSelectCategory('all');
+                        onSelectCategory(cat.id);
                         setShowCategoryDropdown(false);
                       }}
-                      className={`flex items-center gap-2 w-full text-left px-3.5 py-1.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer ${
-                        selectedCategory === 'all'
-                          ? 'bg-indigo-600 text-white font-semibold'
-                          : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                      className={`flex items-center gap-2 w-full text-left px-2.5 py-1 rounded-md text-[10px] font-semibold capitalize tracking-normal transition-all cursor-pointer ${
+                        selectedCategory === cat.id
+                          ? 'bg-indigo-600 text-white'
+                          : 'text-slate-700 hover:bg-slate-100/80 hover:text-slate-900'
                       }`}
                     >
-                      <span>All Creatives</span>
+                      <span className="truncate">{cat.label}</span>
                     </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+          
+          {/* 3. JOB MARKET */}
+          <button
+            onClick={() => onChangeTab('jobs')}
+            className={`h-7 flex items-center gap-1 px-2.5 rounded-md text-[10px] font-semibold capitalize tracking-normal transition-all cursor-pointer border ${
+              currentTab === 'jobs' 
+                ? 'bg-indigo-950 text-white border-indigo-950 shadow-xs' 
+                : 'bg-white/70 hover:bg-white text-indigo-950 hover:text-indigo-950 border-indigo-900/5'
+            }`}
+          >
+            <span>Job Market</span>
+          </button>
 
-                    <div className="h-px bg-slate-100 my-1" />
-
-                    {NAV_CATEGORIES.map((cat) => (
-                      <button
-                        key={cat.id}
-                        onClick={() => {
-                          onSelectCategory(cat.id);
-                          setShowCategoryDropdown(false);
-                        }}
-                        className={`flex items-center gap-2 w-full text-left px-3.5 py-1.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer ${
-                          selectedCategory === cat.id
-                            ? 'bg-indigo-600 text-white font-semibold'
-                            : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
-                        }`}
-                      >
-                        <span className="truncate">{cat.label}</span>
-                      </button>
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-            
-            {/* 3. JOB MARKET */}
-            <button
-              onClick={() => onChangeTab('jobs')}
-              className={`h-9 flex items-center gap-1.5 px-3.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer border ${
-                currentTab === 'jobs' 
-                  ? 'bg-indigo-950 text-white border-indigo-950 shadow-sm' 
-                  : 'bg-white/60 hover:bg-white text-indigo-950 hover:text-indigo-950 border-indigo-900/5'
-              }`}
-            >
-              <span>Job Market</span>
-            </button>
-
-            {/* 4. POST A JOB */}
-            <button
-              onClick={() => setShowPostModal(true)}
-              className="h-9 flex items-center gap-1.5 px-3.5 bg-white/60 hover:bg-white text-indigo-950 hover:text-indigo-950 border border-indigo-900/5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer"
-            >
-              <PlusCircle className="h-3.5 w-3.5 text-emerald-600" />
-              <span>Post a Job</span>
-            </button>
-          </nav>
-        </div>
+          {/* 4. POST A JOB */}
+          <button
+            onClick={() => setShowPostModal(true)}
+            className="h-7 flex items-center gap-1 px-2.5 bg-white/70 hover:bg-white text-indigo-950 hover:text-indigo-950 border border-indigo-900/5 rounded-md text-[10px] font-semibold capitalize tracking-normal transition-all cursor-pointer"
+          >
+            <PlusCircle className="h-3.5 w-3.5 text-emerald-600" />
+            <span>Post a Job</span>
+          </button>
+        </nav>
 
         {/* Right side actions and user session controls grouped beautifully */}
         <div className="hidden lg:flex items-center gap-3 shrink-0">
@@ -740,13 +745,13 @@ export default function Navbar({
                 <>
                   <button
                     onClick={() => onChangeTab('dashboard')}
-                    className={`h-9 flex items-center gap-1.5 px-3.5 rounded-xl text-xs font-semibold uppercase tracking-wider shadow-xs transition-all cursor-pointer border ${
+                    className={`h-7 flex items-center gap-1 px-2 rounded-md text-[10px] font-semibold uppercase tracking-wider shadow-xs transition-all cursor-pointer border ${
                       currentTab === 'dashboard'
                         ? 'bg-[#517f9b] text-white border-[#517f9b]'
                         : 'bg-white/60 hover:bg-white text-indigo-950 border border-indigo-900/5'
                     }`}
                   >
-                    <LayoutDashboard className="h-3.5 w-3.5 text-indigo-600" />
+                    <LayoutDashboard className="h-3 w-3 text-indigo-600" />
                     <span>My Dashboard</span>
                   </button>
 
@@ -754,16 +759,16 @@ export default function Navbar({
                   <div ref={notificationDropdownRef} className="relative">
                     <button
                       onClick={() => setShowNotificationDropdown(!showNotificationDropdown)}
-                      className={`relative h-10 w-10 flex items-center justify-center rounded-xl border transition-all cursor-pointer hover:scale-105 active:scale-95 ${
+                      className={`relative h-7 w-7 flex items-center justify-center rounded-md border transition-all cursor-pointer hover:scale-105 active:scale-95 ${
                         showNotificationDropdown
                           ? 'bg-indigo-950 border-indigo-950 text-white'
                           : 'bg-black/5 hover:bg-black/10 border-indigo-900/10 text-indigo-950'
                       }`}
                       title="Preferred Category Job Alerts"
                     >
-                      <Bell className="h-4 w-4" />
+                      <Bell className="h-3.5 w-3.5" />
                       {preferredCategoryUnreadCount > 0 && (
-                        <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-black text-white ring-2 ring-[#87cefa] animate-bounce">
+                        <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-[8px] font-black text-white ring-1 ring-[#87cefa] animate-bounce">
                           {preferredCategoryUnreadCount}
                         </span>
                       )}
@@ -862,9 +867,9 @@ export default function Navbar({
                     setAuthSuccess(null);
                     setShowJoinModal(true);
                   }}
-                  className="h-10 flex items-center gap-1.5 px-4 bg-[#517f9b] hover:bg-[#436b84] text-white border border-[#4e7994] rounded-xl text-xs font-extrabold uppercase tracking-wider shadow-sm transition-all cursor-pointer hover:scale-102 active:scale-98"
+                  className="h-7 flex items-center gap-1 px-2 bg-[#517f9b] hover:bg-[#436b84] text-white border border-[#4e7994] rounded-md text-[10px] font-extrabold uppercase tracking-wider shadow-xs transition-all cursor-pointer hover:scale-102 active:scale-98"
                 >
-                  <UserPlus className="h-3.5 w-3.5 text-indigo-100" />
+                  <UserPlus className="h-3 w-3 text-indigo-100" />
                   <span>Join as Creative</span>
                 </button>
               )}
@@ -878,9 +883,9 @@ export default function Navbar({
                   setAuthSuccess(null);
                   setShowJoinModal(true);
                 }}
-                className="h-10 flex items-center gap-2 px-4 bg-[#517f9b] hover:bg-[#436b84] text-white border border-[#4e7994] rounded-xl text-xs font-extrabold uppercase tracking-wider shadow-sm transition-all cursor-pointer hover:scale-102 active:scale-98"
+                className="h-7 flex items-center gap-1 px-2 bg-[#517f9b] hover:bg-[#436b84] text-white border border-[#4e7994] rounded-md text-[10px] font-extrabold uppercase tracking-wider shadow-xs transition-all cursor-pointer hover:scale-102 active:scale-98"
               >
-                <UserPlus className="h-3.5 w-3.5 text-indigo-100" />
+                <UserPlus className="h-3 w-3 text-indigo-100" />
                 <span>Signup/Sign In</span>
               </button>
             </div>
@@ -894,7 +899,7 @@ export default function Navbar({
             <div ref={accountDropdownRef} className="relative">
               <button
                 onClick={() => setShowAccountDropdown(!showAccountDropdown)}
-                className="h-10 flex items-center gap-2 px-3.5 bg-black/5 hover:bg-black/10 border border-indigo-900/10 rounded-xl transition-all cursor-pointer text-indigo-950 text-xs font-extrabold shadow-sm"
+                className="h-7 flex items-center gap-1.5 px-2 bg-black/5 hover:bg-black/10 border border-indigo-900/10 rounded-md transition-all cursor-pointer text-indigo-950 text-[10px] font-extrabold shadow-xs"
               >
                 <div className="h-6 w-6 rounded-full overflow-hidden border border-indigo-900/20 shrink-0 bg-slate-800">
                   {isFreelancer && selectedFreelancer?.avatarUrl ? (
@@ -985,7 +990,20 @@ export default function Navbar({
                         <span>Log Out</span>
                       </button>
 
-
+                      {onDeleteAllAccounts && (
+                        <button
+                          onClick={() => {
+                            if (window.confirm("Are you sure you want to delete all registered creative accounts? This action cannot be undone.")) {
+                              onDeleteAllAccounts();
+                              setShowAccountDropdown(false);
+                            }
+                          }}
+                          className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-[11px] font-black rounded-xl transition-all cursor-pointer shadow-sm uppercase tracking-wider mt-1"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          <span>Delete All Creatives</span>
+                        </button>
+                      )}
                     </div>
                   </motion.div>
                 )}

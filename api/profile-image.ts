@@ -5,6 +5,8 @@ const SUPABASE_URL = "https://ppncmiuqtqtlemhkkzrk.supabase.co";
 const SUPABASE_PUBLIC_KEY = "sb_publishable_8hJ6svy_GgTK6dfnPDnXhw_tXzhBXOI";
 const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLIC_KEY);
 
+const DEFAULT_LOGO_URL = 'https://ppncmiuqtqtlemhkkzrk.supabase.co/storage/v1/object/public/ulpoaded%20images/talanta%20hub%20logo.png';
+
 export default async function handler(req: Request, res: Response) {
   const usernameParam = req.query.username || req.query.profile;
   const idParam = req.query.id || req.query.userId;
@@ -12,7 +14,7 @@ export default async function handler(req: Request, res: Response) {
   const id = typeof idParam === 'string' ? idParam.trim() : '';
 
   if (!username && !id) {
-    return res.redirect(302, 'https://talantahub.co.ke/logo.png');
+    return res.redirect(302, DEFAULT_LOGO_URL);
   }
 
   try {
@@ -27,7 +29,7 @@ export default async function handler(req: Request, res: Response) {
     const { data: profile, error } = await query.maybeSingle();
 
     if (error || !profile || !profile.avatar_url) {
-      return res.redirect(302, 'https://talantahub.co.ke/logo.png');
+      return res.redirect(302, DEFAULT_LOGO_URL);
     }
 
     const avatarPath = profile.avatar_url.trim();
@@ -47,7 +49,7 @@ export default async function handler(req: Request, res: Response) {
 
     if (signError || !data?.signedUrl) {
       console.error('Error generating signed URL for profile avatar:', signError);
-      return res.redirect(302, 'https://talantahub.co.ke/logo.png');
+      return res.redirect(302, DEFAULT_LOGO_URL);
     }
 
     // Fetch the raw image data from the private bucket using the server-side signed URL
@@ -69,6 +71,6 @@ export default async function handler(req: Request, res: Response) {
     return res.status(200).send(buffer);
   } catch (err) {
     console.error('Failed to serve profile image:', err);
-    return res.redirect(302, 'https://talantahub.co.ke/logo.png');
+    return res.redirect(302, DEFAULT_LOGO_URL);
   }
 }

@@ -533,7 +533,7 @@ export default function App() {
         const fullName = displayedProfile.fullName || 'Creative Profile';
         const categoryLabel = displayedProfile.title || displayedProfile.category || 'Creative Partner';
         const bioText = displayedProfile.bio || '';
-        const avatarUrl = displayedProfile.avatarUrl || 'https://talantahub.co.ke/logo.png';
+        const avatarUrl = displayedProfile.avatarUrl || 'https://ppncmiuqtqtlemhkkzrk.supabase.co/storage/v1/object/public/ulpoaded%20images/talanta%20hub%20logo.png';
 
         document.title = `${fullName} | Talanta Hub`;
 
@@ -577,7 +577,7 @@ export default function App() {
       resetMetaTag('description', 'Talanta Hub — Where Talent Meets Opportunity.', false);
       resetMetaTag('og:title', 'Talanta Hub | Where Talent Meets Opportunity', true);
       resetMetaTag('og:description', 'Talanta Hub — Where Talent Meets Opportunity.', true);
-      resetMetaTag('og:image', 'https://talantahub.co.ke/logo.png', true);
+      resetMetaTag('og:image', 'https://ppncmiuqtqtlemhkkzrk.supabase.co/storage/v1/object/public/ulpoaded%20images/talanta%20hub%20logo.png', true);
       resetMetaTag('og:url', 'https://talantahub.co.ke/', true);
       resetMetaTag('og:type', 'website', true);
       resetMetaTag('twitter:card', 'summary', false);
@@ -1227,7 +1227,7 @@ export default function App() {
       />
 
       {/* Main Content Viewport */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className={`flex-1 w-full mx-auto ${currentTab === 'home' ? 'max-w-none p-0' : 'max-w-7xl px-4 sm:px-6 lg:px-8 py-8'}`}>
         
         <AnimatePresence mode="wait">
           
@@ -1377,17 +1377,24 @@ export default function App() {
       </AnimatePresence>
 
       {/* humble footer info */}
-      <footer className="border-t border-slate-100 bg-white py-8 mt-12 text-center text-xs text-slate-400 font-bold uppercase tracking-widest space-y-3">
-        <div className="flex flex-wrap justify-center gap-4 text-slate-500 font-extrabold">
-          <button onClick={() => setCurrentTab('home')} className="hover:text-indigo-600 transition-colors cursor-pointer">Home</button>
-          <span>&bull;</span>
-          <button onClick={() => setCurrentTab('browse')} className="hover:text-indigo-600 transition-colors cursor-pointer">Explore Talents</button>
-          <span>&bull;</span>
-          <button onClick={() => setCurrentTab('jobs')} className="hover:text-indigo-600 transition-colors cursor-pointer">Job Market</button>
-          <span>&bull;</span>
-          <button onClick={() => setCurrentTab('terms')} className="hover:text-indigo-600 transition-colors cursor-pointer">Terms & Conditions</button>
+      <footer 
+        className="border-t border-white/20 bg-cover bg-center py-10 mt-12 text-center text-xs text-slate-100 font-bold uppercase tracking-widest space-y-3 relative overflow-hidden"
+        style={{
+          backgroundImage: `url("https://ppncmiuqtqtlemhkkzrk.supabase.co/storage/v1/object/public/ulpoaded%20images/ChatGPT%20Image%20Jul%2024,%202026,%2012_52_25%20PM.png")`,
+          fontFamily: "Helvetica, 'Helvetica Neue', Arial, sans-serif"
+        }}
+      >
+        <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-[1px] pointer-events-none" />
+        <div className="relative z-10 flex flex-wrap justify-center gap-4 text-white font-extrabold" style={{ fontFamily: "Helvetica, 'Helvetica Neue', Arial, sans-serif" }}>
+          <button onClick={() => setCurrentTab('home')} className="hover:text-indigo-200 transition-colors cursor-pointer">Home</button>
+          <span className="text-white/60">&bull;</span>
+          <button onClick={() => setCurrentTab('browse')} className="hover:text-indigo-200 transition-colors cursor-pointer">Explore Talents</button>
+          <span className="text-white/60">&bull;</span>
+          <button onClick={() => setCurrentTab('jobs')} className="hover:text-indigo-200 transition-colors cursor-pointer">Job Market</button>
+          <span className="text-white/60">&bull;</span>
+          <button onClick={() => setCurrentTab('terms')} className="hover:text-indigo-200 transition-colors cursor-pointer">Terms & Conditions</button>
         </div>
-        <div>
+        <div className="relative z-10 text-slate-200 font-semibold tracking-widest" style={{ fontFamily: "Helvetica, 'Helvetica Neue', Arial, sans-serif" }}>
           Where Talent Meets Opportunity
         </div>
       </footer>
